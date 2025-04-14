@@ -1,0 +1,42 @@
+{
+  "name": "project-merlin-contracts",
+  "version": "1.0.0",
+  "description": "Smart contracts for Project Merlin",
+  "main": "index.js",
+  "scripts": {
+    "test": "hardhat test",
+    "compile": "hardhat compile",
+    "deploy:local": "hardhat run scripts/deploy.ts --network localhost",
+    "deploy:hardhat": "hardhat run scripts/deploy.ts --network hardhat",
+    "node": "hardhat node",
+    "clean": "hardhat clean",
+    "typechain": "hardhat typechain",
+    "build": "hardhat compile && npm run typechain"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-chai-matchers": "^2.0.0",
+    "@nomicfoundation/hardhat-ethers": "^3.0.0",
+    "@nomicfoundation/hardhat-network-helpers": "^1.0.0",
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "@nomicfoundation/hardhat-verify": "^2.0.0",
+    "@openzeppelin/contracts": "^4.9.6",
+    "@typechain/ethers-v6": "^0.5.0",
+    "@typechain/hardhat": "^9.0.0",
+    "@types/chai": "^4.3.0",
+    "@types/mocha": "^10.0.0",
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "chai": "^4.3.0",
+    "ethers": "^6.0.0",
+    "hardhat": "^2.19.0",
+    "hardhat-gas-reporter": "^1.0.0",
+    "solidity-coverage": "^0.8.0",
+    "ts-node": "^10.9.0",
+    "typechain": "^8.3.0",
+    "typescript": "^5.0.0"
+  }
+}
