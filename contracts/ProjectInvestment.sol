@@ -13,24 +13,32 @@ contract ProjectInvestment is ReentrancyGuard, Ownable {
     uint256 public totalInvested;
     uint256 public startTime;
     bool public isFinalized;
+    string public projectId;
+    address public projectDAO;
     
     mapping(address => uint256) public investments;
     
-    event InvestmentMade(address investor, uint256 amount);
-    event InvestmentWithdrawn(address investor, uint256 amount);
-    event OwnerWithdraw(uint256 amount);
+    event InvestmentMade(address investor, uint256 amount, string projectId);
+    event InvestmentWithdrawn(address investor, uint256 amount, string projectId);
+    event OwnerWithdraw(uint256 amount, string projectId);
     
     constructor(
         address _mrlnToken,
-        uint256 _targetAmount
+        uint256 _targetAmount,
+        string memory _projectId,
+        address _projectDAO
     ) {
         transferOwnership(msg.sender);
         require(_mrlnToken != address(0), "Invalid token address");
         require(_targetAmount > 0, "Target amount must be greater than 0");
+        require(bytes(_projectId).length > 0, "Invalid project ID");
+        require(_projectDAO != address(0), "Invalid DAO address");
         
         mrlnToken = IERC20(_mrlnToken);
         targetAmount = _targetAmount;
         startTime = block.timestamp;
+        projectId = _projectId;
+        projectDAO = _projectDAO;
     }
     
     modifier investmentOpen() {
@@ -45,19 +53,25 @@ contract ProjectInvestment is ReentrancyGuard, Ownable {
         _;
     }
     
-    function invest(uint256 amount) external nonReentrant investmentOpen {
-        require(msg.sender != owner(), "Owner cannot invest");
+    modifier onlyProjectDAO() {
+        require(msg.sender == projectDAO, "Only ProjectDAO can call");
+        _;
+    }
+    
+    // This function can only be called by the ProjectDAO contract
+    function contributeToProject(address investor, uint256 amount) external nonReentrant onlyProjectDAO investmentOpen {
+        require(investor != owner(), "Owner cannot invest");
         require(amount > 0, "Amount must be greater than 0");
         
         require(
-            mrlnToken.transferFrom(msg.sender, address(this), amount),
+            mrlnToken.transferFrom(investor, address(this), amount),
             "Token transfer failed"
         );
         
-        investments[msg.sender] += amount;
+        investments[investor] += amount;
         totalInvested += amount;
         
-        emit InvestmentMade(msg.sender, amount);
+        emit InvestmentMade(investor, amount, projectId);
     }
     
     function withdrawInvestment() external nonReentrant investmentEnded {
@@ -74,7 +88,7 @@ contract ProjectInvestment is ReentrancyGuard, Ownable {
             "Token transfer failed"
         );
         
-        emit InvestmentWithdrawn(msg.sender, amount);
+        emit InvestmentWithdrawn(msg.sender, amount, projectId);
     }
     
     function ownerWithdraw() external nonReentrant onlyOwner investmentEnded {
@@ -88,7 +102,7 @@ contract ProjectInvestment is ReentrancyGuard, Ownable {
             "Token transfer failed"
         );
         
-        emit OwnerWithdraw(totalInvested);
+        emit OwnerWithdraw(totalInvested, projectId);
     }
     
     // View functions
@@ -109,5 +123,9 @@ contract ProjectInvestment is ReentrancyGuard, Ownable {
     
     function isInvestmentPeriodOpen() public view returns (bool) {
         return block.timestamp <= startTime + INVESTMENT_DURATION && !isFinalized;
+    }
+    
+    function getProjectId() external view returns (string memory) {
+        return projectId;
     }
 }

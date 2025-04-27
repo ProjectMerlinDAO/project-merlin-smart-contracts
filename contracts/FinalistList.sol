@@ -3,7 +3,7 @@ pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract ProposalList is Ownable {
+contract FinalistList is Ownable {
     address public immutable dao;
     uint256 public immutable votingRound;
     mapping(uint256 => string) public availableProjects;
@@ -13,6 +13,7 @@ contract ProposalList is Ownable {
     uint256 public selectedProjectCount;
     uint256 public constant VOTING_WINDOW = 7 days;
     uint256 public createdAt;
+    uint256 public finalistListType; // 0-3 (4 different lists)
 
     modifier onlyDAO() {
         require(msg.sender == dao, "Only DAO can call this");
@@ -22,15 +23,19 @@ contract ProposalList is Ownable {
     constructor(
         address _dao,
         uint256 _votingRound,
-        string[] memory _initialProjects,
-        address _voter
+        string[] memory _finalistProjects,
+        address _voter,
+        uint256 _finalistListType
     ) {
         dao = _dao;
         votingRound = _votingRound;
-        availableProjectCount = _initialProjects.length;
-        for (uint256 i = 0; i < _initialProjects.length; i++) {
-            availableProjects[i] = _initialProjects[i];
+        availableProjectCount = _finalistProjects.length;
+        finalistListType = _finalistListType;
+        
+        for (uint256 i = 0; i < _finalistProjects.length; i++) {
+            availableProjects[i] = _finalistProjects[i];
         }
+        
         createdAt = block.timestamp;
         _transferOwnership(_voter);
     }
