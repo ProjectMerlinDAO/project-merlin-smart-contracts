@@ -1,0 +1,11 @@
+Streaming transaction logs mentioning vmZU1JdnRT25XyyFeoWh2bpprNWDuZAfBsbyctHzn5D. Confirmed commitment
+Transaction executed in slot 11:
+  Signature: 58WQdgxZC98JbARFCN2KQvpokjPNEUK6qSVZ88fuDvfSb4fNMPsa4GyfLFuNNXib5jDbCxEnGTBkRh7grnKqDfNB
+  Status: Ok
+  Log Messages:
+    Program vmZU1JdnRT25XyyFeoWh2bpprNWDuZAfBsbyctHzn5D invoke [1]
+    Program log: Instruction: Initialize
+    Program 11111111111111111111111111111111 invoke [2]
+    Program 11111111111111111111111111111111 success
+    Program vmZU1JdnRT25XyyFeoWh2bpprNWDuZAfBsbyctHzn5D consumed 9141 of 200000 compute units
+    Program vmZU1JdnRT25XyyFeoWh2bpprNWDuZAfBsbyctHzn5D success

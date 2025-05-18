@@ -64,6 +64,9 @@ deploy_mainnet() {
     
     # Linea
     deploy_to_network "linea" "Linea" "LINEASCAN_API_KEY"
+    
+    # BNB Chain
+    deploy_to_network "bsc" "BNB Chain" "BSCSCAN_API_KEY"
 }
 
 # Testnet deployments
@@ -79,6 +82,9 @@ deploy_testnet() {
     
     # Linea
     deploy_to_network "lineaTestnet" "Linea Sepolia" "LINEASCAN_API_KEY"
+    
+    # BNB Chain Testnet
+    deploy_to_network "bscTestnet" "BSC Testnet" "BSCSCAN_API_KEY"
 }
 
 # Execute deployments based on target

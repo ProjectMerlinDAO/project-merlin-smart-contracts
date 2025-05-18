@@ -9,15 +9,7 @@ interface NetworkConfig {
 }
 
 const configs: { [key: string]: NetworkConfig } = {
-  arbitrumSepolia: {
-    name: "Arbitrum Sepolia",
-    tokenName: "Merlin",
-    tokenSymbol: "MRLN",
-    totalSupply: "800000000", // 800M tokens
-    bridgeAmount: "100000000", // 100M tokens
-    transferFee: 100, // 1% (100 basis points)
-    operationFee: "1" // 1 MRLN
-  },
+  // Arbitrum Networks
   arbitrumOne: {
     name: "Arbitrum One",
     tokenName: "Merlin",
@@ -27,8 +19,84 @@ const configs: { [key: string]: NetworkConfig } = {
     transferFee: 100,
     operationFee: "1"
   },
-  arbitrumGoerli: {
-    name: "Arbitrum Goerli",
+  arbitrumSepolia: {
+    name: "Arbitrum Sepolia",
+    tokenName: "Merlin",
+    tokenSymbol: "MRLN",
+    totalSupply: "800000000",
+    bridgeAmount: "100000000",
+    transferFee: 100,
+    operationFee: "1"
+  },
+  // Base Networks
+  base: {
+    name: "Base",
+    tokenName: "Merlin",
+    tokenSymbol: "MRLN",
+    totalSupply: "800000000",
+    bridgeAmount: "100000000",
+    transferFee: 100,
+    operationFee: "1"
+  },
+  baseSepolia: {
+    name: "Base Sepolia",
+    tokenName: "Merlin",
+    tokenSymbol: "MRLN",
+    totalSupply: "800000000",
+    bridgeAmount: "100000000",
+    transferFee: 100,
+    operationFee: "1"
+  },
+  // Optimism Networks
+  optimism: {
+    name: "Optimism",
+    tokenName: "Merlin",
+    tokenSymbol: "MRLN",
+    totalSupply: "800000000",
+    bridgeAmount: "100000000",
+    transferFee: 100,
+    operationFee: "1"
+  },
+  optimismSepolia: {
+    name: "Optimism Sepolia",
+    tokenName: "Merlin",
+    tokenSymbol: "MRLN",
+    totalSupply: "800000000",
+    bridgeAmount: "100000000",
+    transferFee: 100,
+    operationFee: "1"
+  },
+  // Linea Networks
+  linea: {
+    name: "Linea",
+    tokenName: "Merlin",
+    tokenSymbol: "MRLN",
+    totalSupply: "800000000",
+    bridgeAmount: "100000000",
+    transferFee: 100,
+    operationFee: "1"
+  },
+  lineaTestnet: {
+    name: "Linea Sepolia",
+    tokenName: "Merlin",
+    tokenSymbol: "MRLN",
+    totalSupply: "800000000",
+    bridgeAmount: "100000000",
+    transferFee: 100,
+    operationFee: "1"
+  },
+  // BSC Networks
+  bsc: {
+    name: "BNB Chain",
+    tokenName: "Merlin",
+    tokenSymbol: "MRLN",
+    totalSupply: "800000000",
+    bridgeAmount: "100000000",
+    transferFee: 100,
+    operationFee: "1"
+  },
+  bscTestnet: {
+    name: "BSC Testnet",
     tokenName: "Merlin",
     tokenSymbol: "MRLN",
     totalSupply: "800000000",
