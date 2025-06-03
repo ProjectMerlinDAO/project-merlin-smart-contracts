@@ -15,47 +15,68 @@ import "./VotingRoundManagement.sol";
 import "./FinalistVotingLib.sol";
 import "./FinalistVotingManager.sol";
 
+/**
+ * @title ProjectDAO
+ * @dev Main governance contract for Project Merlin's decentralized project funding
+ *
+ * This contract manages:
+ * - Project submissions and funding
+ * - Multi-round voting system
+ * - Voter management and reassignment
+ * - Integration with CommunityNFT for governance
+ *
+ * Security considerations:
+ * - Role-based access control for administrative functions
+ * - Protected against reentrancy
+ * - Pausable for emergency situations
+ * - Validated state transitions in voting rounds
+ * - Protected fund management
+ */
 contract ProjectDAO is AccessControl, ReentrancyGuard, Pausable {
     using ProjectManagement for mapping(string => ProjectManagement.Project);
     using VotingRoundManagement for mapping(uint256 => VotingRoundManagement.VotingRound);
     using FinalistVotingLib for FinalistVotingLib.VotingState;
 
+    // Access control roles
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant CORE_TEAM_ROLE = keccak256("CORE_TEAM_ROLE");
     bytes32 public constant SUPER_ADMIN_ROLE = keccak256("SUPER_ADMIN_ROLE");
 
-    IERC721 public communityNFT;
-    IERC20 public mrlnToken;
+    // Core contracts
+    IERC721 public immutable communityNFT;
+    IERC20 public immutable mrlnToken;
 
+    // Project and voting state
     mapping(string => ProjectManagement.Project) public projects;
     mapping(uint256 => mapping(address => ProposalList)) public votingRounds;
     mapping(uint256 => mapping(uint256 => string)) public roundProjects;
     mapping(uint256 => bool) public roundExists;
     mapping(uint256 => VotingRoundManagement.VotingRound) public votingRoundInfo;
     
+    // Current state
     uint256 public currentVotingRound;
+    
+    // Constants
     uint256 public constant VOTING_DURATION = 7 days;
     uint256 public constant SUBMISSION_FEE = 0.1 ether;
-    
     uint256 public constant MIN_VOTING_POWER = 1;
     uint256 public constant RAVEN_MESSAGE_FEE = 100 * 10**18; // 100 MRLN
     uint256 public constant PROJECTS_PER_LIST = 5;
     uint256 public constant LIST_EXPIRY_TIME = 7 days;
 
-    // Reassignment tracking
-    mapping(uint256 => bool) public roundOneCompleted;
-    mapping(uint256 => bool) public roundTwoCompleted;
-    mapping(uint256 => mapping(address => address)) public reassignedVoters;
-    mapping(uint256 => uint256) public roundEndTime;
-    
+    // Round timing
     uint256 public constant ROUND_ONE_DURATION = 7 days;
     uint256 public constant ROUND_TWO_DURATION = 3 days;
     uint256 public constant ROUND_THREE_DURATION = 3 days;
 
-    // Voter tracking
+    // Round state tracking
+    mapping(uint256 => bool) public roundOneCompleted;
+    mapping(uint256 => bool) public roundTwoCompleted;
+    mapping(uint256 => mapping(address => address)) public reassignedVoters;
+    mapping(uint256 => uint256) public roundEndTime;
     mapping(uint256 => address[]) public roundVoters;
 
-    // List type related constants and storage
+    // List type configuration
     uint256 public constant PROJECTS_PER_LIST_TYPE = 5;
     uint256 public constant LIST_TYPES_THRESHOLD_1 = 20;
     uint256 public constant LIST_TYPES_THRESHOLD_2 = 50;
@@ -70,12 +91,14 @@ contract ProjectDAO is AccessControl, ReentrancyGuard, Pausable {
     uint256 public constant FINALISTS_PER_LIST_TIER_2 = 3;
     uint256 public constant FINALISTS_PER_LIST_TIER_3 = 4;
     
+    // List type tracking
     mapping(uint256 => mapping(address => uint256)) public voterListTypes;
     mapping(uint256 => uint256) public roundListTypeCount;
 
     // Finalist voting
-    FinalistVotingManager public finalistVotingManager;
+    FinalistVotingManager public immutable finalistVotingManager;
 
+    // Events
     event ProjectSubmitted(string indexed projectId, address indexed owner, uint256 fundingGoal);
     event ProjectContribution(string indexed projectId, address indexed contributor, uint256 amount);
     event VotingRoundStarted(uint256 indexed roundId, string[] projects);
@@ -91,10 +114,27 @@ contract ProjectDAO is AccessControl, ReentrancyGuard, Pausable {
     event FinalistVotingEnded(uint256 indexed roundId, uint256 timestamp);
     event WinnersSelected(uint256 indexed roundId, string[] winners);
 
+    /**
+     * @dev Modifier to validate round state
+     * @param roundId Round ID to validate
+     */
+    modifier validRound(uint256 roundId) {
+        require(roundExists[roundId], "Round does not exist");
+        _;
+    }
+
+    /**
+     * @dev Constructor initializes the DAO with required contracts
+     * @param _communityNFT Address of the CommunityNFT contract
+     * @param _mrlnToken Address of the MRLN token contract
+     */
     constructor(
         address _communityNFT, 
         address _mrlnToken
     ) {
+        require(_communityNFT != address(0), "Invalid NFT address");
+        require(_mrlnToken != address(0), "Invalid token address");
+
         communityNFT = IERC721(_communityNFT);
         mrlnToken = IERC20(_mrlnToken);
         
@@ -106,16 +146,38 @@ contract ProjectDAO is AccessControl, ReentrancyGuard, Pausable {
         finalistVotingManager = new FinalistVotingManager(address(this));
     }
 
+    /**
+     * @dev Pauses all DAO operations
+     * Security: Only callable by SUPER_ADMIN_ROLE
+     */
     function pause() external onlyRole(SUPER_ADMIN_ROLE) {
         _pause();
         emit DAOPaused(msg.sender);
     }
 
+    /**
+     * @dev Unpauses all DAO operations
+     * Security: Only callable by SUPER_ADMIN_ROLE
+     */
     function unpause() external onlyRole(SUPER_ADMIN_ROLE) {
         _unpause();
         emit DAOUnpaused(msg.sender);
     }
 
+    /**
+     * @dev Submits a new project for funding
+     * @param projectId Unique identifier for the project
+     * @param fundingGoal Target funding amount
+     * @param title Project title
+     * @param description Detailed project description
+     * @param shortBrief Brief project summary
+     * @param imageUri URI for project image
+     *
+     * Security:
+     * - Protected against reentrancy
+     * - Requires submission fee
+     * - Validates input parameters
+     */
     function submitProject(
         string calldata projectId, 
         uint256 fundingGoal,
@@ -125,6 +187,12 @@ contract ProjectDAO is AccessControl, ReentrancyGuard, Pausable {
         string calldata imageUri
     ) external payable nonReentrant whenNotPaused {
         require(msg.value == SUBMISSION_FEE, "Incorrect submission fee");
+        require(bytes(projectId).length > 0, "Invalid project ID");
+        require(bytes(title).length > 0, "Invalid title");
+        require(bytes(description).length > 0, "Invalid description");
+        require(bytes(shortBrief).length > 0, "Invalid brief");
+        require(bytes(imageUri).length > 0, "Invalid image URI");
+
         ProjectManagement.createProject(
             projects, 
             projectId, 
@@ -138,7 +206,20 @@ contract ProjectDAO is AccessControl, ReentrancyGuard, Pausable {
         emit ProjectSubmitted(projectId, msg.sender, fundingGoal);
     }
 
+    /**
+     * @dev Contributes MRLN tokens to a project
+     * @param projectId Project to contribute to
+     * @param amount Amount of MRLN tokens to contribute
+     *
+     * Security:
+     * - Protected against reentrancy
+     * - Validates project existence
+     * - Secure token transfer
+     */
     function contributeToProject(string calldata projectId, uint256 amount) external nonReentrant whenNotPaused {
+        require(amount > 0, "Invalid amount");
+        require(bytes(projectId).length > 0, "Invalid project ID");
+
         ProjectManagement.contributeToProject(projects, projectId, amount);
         require(mrlnToken.transferFrom(msg.sender, address(this), amount), "Transfer failed");
         emit ProjectContribution(projectId, msg.sender, amount);
@@ -291,8 +372,8 @@ contract ProjectDAO is AccessControl, ReentrancyGuard, Pausable {
     }
 
     function startVotingRoundWithListTypes(string[] memory _projects, address[] memory voters) external onlyRole(ADMIN_ROLE) whenNotPaused {
-        require(_projects.length > 0, "No projects");
-        require(voters.length > 0, "No voters");
+        require(_projects.length > 0, "No projects provided");
+        require(voters.length > 0, "No voters provided");
         
         // Check participation count for each project
         for (uint256 i = 0; i < _projects.length; i++) {
@@ -316,7 +397,7 @@ contract ProjectDAO is AccessControl, ReentrancyGuard, Pausable {
         roundVoters[currentVotingRound] = voters;
         roundEndTime[currentVotingRound] = block.timestamp + ROUND_ONE_DURATION;
         
-        uint256 listTypeCount = determineListTypeCount(_projects.length);
+        uint256 listTypeCount = determineListTypeCount(_projects.length, false);
         roundListTypeCount[currentVotingRound] = listTypeCount;
         
         uint256 votersPerListType = voters.length / listTypeCount;
@@ -348,17 +429,37 @@ contract ProjectDAO is AccessControl, ReentrancyGuard, Pausable {
         emit VotingRoundStarted(currentVotingRound, _projects);
     }
 
-    function determineListTypeCount(uint256 projectCount) internal pure returns (uint256) {
-        if (projectCount < LIST_TYPES_THRESHOLD_1) {
-            uint256 count = projectCount / PROJECTS_PER_LIST_TYPE;
-            return count + (projectCount % PROJECTS_PER_LIST_TYPE > 0 ? 1 : 0);
-        } else if (projectCount <= LIST_TYPES_THRESHOLD_2) {
-            return projectCount / PROJECTS_PER_LIST_TYPE + (projectCount % PROJECTS_PER_LIST_TYPE > 0 ? 1 : 0);
-        } else if (projectCount < LIST_TYPES_THRESHOLD_3) {
-            return 8;
-        } else {
-            return 16;
+    function determineListTypeCount(uint256 projectCount, bool isFinalistVoting) internal pure returns (uint256) {
+        uint256 count;
+        
+        // For small project counts, ensure at least 1 list type
+        if (projectCount <= PROJECTS_PER_LIST_TYPE) {
+            count = 1;
         }
+        // For counts below threshold 1, divide by projects per list and round up
+        else if (projectCount < LIST_TYPES_THRESHOLD_1) {
+            count = projectCount / PROJECTS_PER_LIST_TYPE;
+            count = count + (projectCount % PROJECTS_PER_LIST_TYPE > 0 ? 1 : 0);
+        } 
+        // For counts between threshold 1 and 2, divide by projects per list and round up
+        else if (projectCount <= LIST_TYPES_THRESHOLD_2) {
+            count = projectCount / PROJECTS_PER_LIST_TYPE + (projectCount % PROJECTS_PER_LIST_TYPE > 0 ? 1 : 0);
+        } 
+        // For counts between threshold 2 and 3, use 8 list types
+        else if (projectCount < LIST_TYPES_THRESHOLD_3) {
+            count = 8;
+        } 
+        // For counts above threshold 3, use 16 list types
+        else {
+            count = 16;
+        }
+        
+        // For finalist voting, ensure count doesn't exceed FINALIST_LIST_COUNT
+        if (isFinalistVoting) {
+            return count > 3 ? 3 : count;
+        }
+        
+        return count;
     }
 
     function getProjectsForListType(
@@ -404,7 +505,7 @@ contract ProjectDAO is AccessControl, ReentrancyGuard, Pausable {
         require(roundTwoCompleted[roundId], "R2 not done");
         
         address[] memory currentRoundVoters = roundVoters[roundId];
-        uint256 currentListTypeCount = roundListTypeCount[roundId];
+        uint256 currentListTypeCount = determineListTypeCount(votingRoundInfo[roundId].projectCount, true);
         
         // Update voter data in the manager
         for (uint256 i = 0; i < currentRoundVoters.length; i++) {
@@ -412,7 +513,7 @@ contract ProjectDAO is AccessControl, ReentrancyGuard, Pausable {
             finalistVotingManager.updateVoterData(
                 roundId,
                 voter,
-                voterListTypes[roundId][voter],
+                voterListTypes[roundId][voter] % 3, // Ensure list type is within FINALIST_LIST_COUNT
                 address(votingRounds[roundId][voter])
             );
         }

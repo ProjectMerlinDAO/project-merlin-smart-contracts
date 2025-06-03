@@ -113,7 +113,7 @@ describe("TokenManager", function () {
       
       // Only offchain processor (initially the owner) can mint
       await expect(bridge.connect(user1).mintAsset(user2.address, mintAmount))
-        .to.be.revertedWith("Only Offchain Procesor allowed to call this method");
+        .to.be.revertedWith("Only Offchain Processor allowed to call this method");
       
       // Should succeed when called by owner (initial offchain processor)
       await bridge.connect(owner).mintAsset(user2.address, mintAmount);
@@ -128,7 +128,7 @@ describe("TokenManager", function () {
       
       // Now only user1 can mint
       await expect(bridge.connect(owner).mintAsset(user2.address, mintAmount))
-        .to.be.revertedWith("Only Offchain Procesor allowed to call this method");
+        .to.be.revertedWith("Only Offchain Processor allowed to call this method");
       
       await bridge.connect(user1).mintAsset(user2.address, mintAmount);
       

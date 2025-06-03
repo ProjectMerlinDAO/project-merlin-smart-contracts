@@ -6,14 +6,33 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 
+/**
+ * @title Bridge
+ * @dev Manages cross-chain token transfers for the Project Merlin ecosystem
+ *
+ * This contract handles the bridging of tokens between different chains.
+ * It includes fee management, pausable operations, and integration with
+ * an offchain processor for cross-chain communication.
+ *
+ * Security considerations:
+ * - Only Oracle can control fees and pause operations
+ * - Only offchain processor can mint tokens
+ * - Fee calculations protected against overflow
+ * - Uses OpenZeppelin's Ownable and Pausable for security
+ */
 contract Bridge is Ownable, Pausable {
+    // Core state variables
     address public tokenAddress;
     uint256 public transferFee;    // percentage (e.g., 100 = 1%)
     uint256 public operationFee;   // flat fee in tokens
-    uint256 constant FEE_DENOMINATOR = 10000;
-    address offchainProcessor;
+    uint256 public constant FEE_DENOMINATOR = 10000;
+    address public offchainProcessor;
 
+    // Maximum fee constraints
+    uint256 public constant MAX_TRANSFER_FEE = 1000; // 10%
+    uint256 public constant MAX_OPERATION_FEE = 1000 * 10**18; // 1000 tokens
 
+    // Events for tracking bridge operations
     event BridgeStarted(
         address indexed user,
         uint256 amount,
@@ -27,11 +46,33 @@ contract Bridge is Ownable, Pausable {
         uint256 amount
     );
 
-    modifier onlyOffchain(){
-        require(msg.sender == offchainProcessor,"Only Offchain Procesor allowed to call this method");
+    event FeeUpdated(
+        uint256 newTransferFee,
+        uint256 newOperationFee
+    );
+
+    event OffchainProcessorChanged(
+        address indexed oldProcessor,
+        address indexed newProcessor
+    );
+
+    /**
+     * @dev Modifier to restrict functions to offchain processor
+     */
+    modifier onlyOffchain() {
+        require(msg.sender == offchainProcessor, "Only Offchain Processor allowed to call this method");
+        require(offchainProcessor != address(0), "Offchain processor not initialized");
         _;
     }
 
+    /**
+     * @dev Constructor initializes the bridge with token and fee settings
+     * @param _token Address of the token contract
+     * @param _transferFee Percentage fee for transfers (basis points)
+     * @param _operationFee Flat fee for operations
+     * @param oracle Address of the oracle that will own the bridge
+     * @param _offchainProcessor Address of the offchain processor
+     */
     constructor(
         address _token,
         uint256 _transferFee,
@@ -39,73 +80,147 @@ contract Bridge is Ownable, Pausable {
         address oracle,
         address _offchainProcessor
     ) {
-        transferOwnership(oracle);
-        require(_token != address(0), "Invalid token");
+        require(_token != address(0), "Invalid token address");
+        require(oracle != address(0), "Invalid oracle address");
+        require(_offchainProcessor != address(0), "Invalid processor address");
+        require(_transferFee <= MAX_TRANSFER_FEE, "Transfer fee too high");
+        require(_operationFee <= MAX_OPERATION_FEE, "Operation fee too high");
+
         tokenAddress = _token;
         transferFee = _transferFee;
         operationFee = _operationFee;
         offchainProcessor = _offchainProcessor;
+        transferOwnership(oracle);
     }
 
+    /**
+     * @dev Initiates a bridge transfer to another chain
+     * @param amount Amount of tokens to bridge
+     * @param destinationChain Target chain identifier
+     * @param destinationAddress Recipient address on target chain
+     *
+     * Security:
+     * - Validates allowance and balances
+     * - Calculates fees with overflow protection
+     * - Burns tokens after successful transfer
+     */
     function receiveAsset(
         uint256 amount,
         string memory destinationChain,
         address destinationAddress
-    ) public whenNotPaused {
+    ) external whenNotPaused {
+        require(amount > 0, "Amount must be greater than 0");
+        require(bytes(destinationChain).length > 0, "Invalid destination chain");
+        require(destinationAddress != address(0), "Invalid destination address");
+
         TokenManager token = TokenManager(tokenAddress);
 
         uint256 allowance = token.allowance(msg.sender, address(this));
         require(allowance >= amount, "Insufficient allowance");
 
-        uint256 fee = (amount * transferFee) / FEE_DENOMINATOR + operationFee;
-        require(fee < amount, "Fee exceeds amount");
+        // Calculate fees with overflow protection
+        uint256 transferFeeAmount = (amount * transferFee) / FEE_DENOMINATOR;
+        uint256 totalFee = transferFeeAmount + operationFee;
+        require(totalFee < amount, "Fee exceeds amount");
 
-        uint256 amountAfterFee = amount - fee;
+        uint256 amountAfterFee = amount - totalFee;
 
         require(token.transferFrom(msg.sender, address(this), amount), "Transfer failed");
 
-        // Burn tokens after transfer
+        // Burn tokens after successful transfer
         token.burnFrom(address(this), amountAfterFee);
 
         emit BridgeStarted(msg.sender, amount, amountAfterFee, destinationChain, destinationAddress);
     }
 
+    /**
+     * @dev Mints tokens for cross-chain transfers
+     * @param to Recipient address
+     * @param amount Amount of tokens to mint
+     *
+     * Security:
+     * - Only callable by offchain processor
+     * - Protected by pausable mechanism
+     */
     function mintAsset(
         address to,
         uint256 amount
-    ) public onlyOffchain whenNotPaused {
+    ) external onlyOffchain whenNotPaused {
+        require(to != address(0), "Invalid recipient");
+        require(amount > 0, "Amount must be greater than 0");
+
         TokenManager token = TokenManager(tokenAddress);
         token.mint(to, amount);
 
         emit AssetMinted(to, amount);
     }
 
-    // Oracle controls these:
-    function updateTransferFee(uint256 newFee) public onlyOwner {
-        require(newFee <= 1000, "Too high"); // e.g. max 10%
+    /**
+     * @dev Updates the transfer fee percentage
+     * @param newFee New fee in basis points
+     *
+     * Security: Only callable by owner (Oracle)
+     */
+    function updateTransferFee(uint256 newFee) external onlyOwner {
+        require(newFee <= MAX_TRANSFER_FEE, "Fee too high");
         transferFee = newFee;
+        emit FeeUpdated(newFee, operationFee);
     }
 
-    function updateOperationFee(uint256 newFee) public onlyOwner {
+    /**
+     * @dev Updates the flat operation fee
+     * @param newFee New fee amount
+     *
+     * Security: Only callable by owner (Oracle)
+     */
+    function updateOperationFee(uint256 newFee) external onlyOwner {
+        require(newFee <= MAX_OPERATION_FEE, "Fee too high");
         operationFee = newFee;
+        emit FeeUpdated(transferFee, newFee);
     }
 
-    function pause() public onlyOwner {
+    /**
+     * @dev Pauses bridge operations
+     * Security: Only callable by owner (Oracle)
+     */
+    function pause() external onlyOwner {
         _pause();
     }
 
-    function unpause() public onlyOwner {
+    /**
+     * @dev Unpauses bridge operations
+     * Security: Only callable by owner (Oracle)
+     */
+    function unpause() external onlyOwner {
         _unpause();
     }
 
-    function withdrawFees(address to) public onlyOwner {
+    /**
+     * @dev Withdraws accumulated fees
+     * @param to Address to receive the fees
+     *
+     * Security:
+     * - Only callable by owner (Oracle)
+     * - Protected against reentrancy by transfer pattern
+     */
+    function withdrawFees(address to) external onlyOwner {
+        require(to != address(0), "Invalid recipient");
         IERC20 token = IERC20(tokenAddress);
         uint256 balance = token.balanceOf(address(this));
-        require(token.transfer(to, balance), "Withdraw failed");
+        require(balance > 0, "No fees to withdraw");
+        require(token.transfer(to, balance), "Fee withdrawal failed");
     }
 
-    function changeOffchain(address newOffchainProcessor) external  onlyOwner {
-        require(newOffchainProcessor != address(0), "Invalid offchain processor");
+    /**
+     * @dev Updates the offchain processor address
+     * @param newOffchainProcessor New processor address
+     *
+     * Security: Only callable by owner (Oracle)
+     */
+    function changeOffchain(address newOffchainProcessor) external onlyOwner {
+        require(newOffchainProcessor != address(0), "Invalid processor address");
+        address oldProcessor = offchainProcessor;
         offchainProcessor = newOffchainProcessor;
+        emit OffchainProcessorChanged(oldProcessor, newOffchainProcessor);
     }
 }

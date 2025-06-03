@@ -892,7 +892,7 @@ describe("ProjectDAO", function () {
   });
 
   describe("Finalist Voting Phase", function () {
-    const projects = generateProjects(25); // 25 projects will create 5 list types with 5 projects each
+    const projects = generateProjects(15); // 15 projects will create 3 list types with 5 projects each
     
     beforeEach(async function () {
       // Setup NFT minting for voters
@@ -906,7 +906,7 @@ describe("ProjectDAO", function () {
       }
       
       // Submit and approve all projects
-      for (const projectId of projects.slice(0, 10)) { // Use fewer projects for simplicity
+      for (const projectId of projects) {
         await projectDAO.connect(projectOwner).submitProject(
           projectId, 
           FUNDING_GOAL,
@@ -924,10 +924,9 @@ describe("ProjectDAO", function () {
     it("Should complete the entire voting process without errors", async function () {
       // Use just 2 voters
       const voters = [voter1.address, voter2.address];
-      const projectsToUse = projects.slice(0, 6); // Use 6 projects for 2 list types
       
       // Start initial voting round
-      await projectDAO.connect(admin).startVotingRound(projectsToUse, voters);
+      await projectDAO.connect(admin).startVotingRound(projects, voters);
       
       // Have voters vote
       for (const [i, voter] of [voter1, voter2].entries()) {
@@ -975,10 +974,9 @@ describe("ProjectDAO", function () {
     it("Should not allow non-participants to vote in finalist round", async function () {
       // Use just 2 voters
       const voters = [voter1.address, voter2.address];
-      const projectsToUse = projects.slice(0, 10);
       
       // Start initial voting round
-      await projectDAO.connect(admin).startVotingRound(projectsToUse, voters);
+      await projectDAO.connect(admin).startVotingRound(projects, voters);
       
       // Only voter1 votes
       const voter1ListAddr = await projectDAO.getVoterProposalList(1, voter1.address);

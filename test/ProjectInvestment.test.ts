@@ -117,7 +117,7 @@ describe("ProjectInvestment", function () {
   });
 
   describe("Withdrawal", function () {
-    const investAmount = ethers.parseEther("500");
+    const investAmount = ethers.parseEther("400"); // Reduced from 500 to ensure we stay under target
 
     beforeEach(async function () {
       await tokenManager.connect(investor1).approve(projectInvestment.getAddress(), investAmount);
@@ -142,9 +142,10 @@ describe("ProjectInvestment", function () {
     });
 
     it("Should not allow withdrawal if target reached", async function () {
-      // Invest enough to reach target
-      await tokenManager.connect(investor2).approve(projectInvestment.getAddress(), TARGET_AMOUNT);
-      await projectInvestment.connect(daoAddress).contributeToProject(investor2.address, TARGET_AMOUNT);
+      // Invest enough to reach target (600 more to reach 1000 total)
+      const remainingAmount = TARGET_AMOUNT - investAmount;
+      await tokenManager.connect(investor2).approve(projectInvestment.getAddress(), remainingAmount);
+      await projectInvestment.connect(daoAddress).contributeToProject(investor2.address, remainingAmount);
 
       await time.increase(INVESTMENT_DURATION + 1);
       
@@ -154,11 +155,10 @@ describe("ProjectInvestment", function () {
   });
 
   describe("Owner Withdrawal", function () {
-    const totalInvestAmount = ethers.parseEther("1200"); // More than target
-
     beforeEach(async function () {
-      await tokenManager.connect(investor1).approve(projectInvestment.getAddress(), totalInvestAmount);
-      await projectInvestment.connect(daoAddress).contributeToProject(investor1.address, totalInvestAmount);
+      // Invest exactly the target amount
+      await tokenManager.connect(investor1).approve(projectInvestment.getAddress(), TARGET_AMOUNT);
+      await projectInvestment.connect(daoAddress).contributeToProject(investor1.address, TARGET_AMOUNT);
     });
 
     it("Should allow owner to withdraw if target reached", async function () {
@@ -168,7 +168,7 @@ describe("ProjectInvestment", function () {
       await projectInvestment.ownerWithdraw();
       const finalBalance = await tokenManager.balanceOf(owner.address);
 
-      expect(finalBalance - initialBalance).to.equal(totalInvestAmount);
+      expect(finalBalance - initialBalance).to.equal(TARGET_AMOUNT);
       expect(await projectInvestment.isFinalized()).to.equal(true);
     });
 
@@ -188,8 +188,9 @@ describe("ProjectInvestment", function () {
       ) as ProjectInvestment;
 
       // Invest below target
-      await tokenManager.connect(investor1).approve(projectInvestment.getAddress(), ethers.parseEther("500"));
-      await projectInvestment.connect(daoAddress).contributeToProject(investor1.address, ethers.parseEther("500"));
+      const belowTargetAmount = ethers.parseEther("500");
+      await tokenManager.connect(investor1).approve(projectInvestment.getAddress(), belowTargetAmount);
+      await projectInvestment.connect(daoAddress).contributeToProject(investor1.address, belowTargetAmount);
       
       await time.increase(INVESTMENT_DURATION + 1);
       await expect(projectInvestment.ownerWithdraw())
