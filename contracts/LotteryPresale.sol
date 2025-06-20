@@ -3,7 +3,7 @@ pragma solidity >=0.8.0 <0.9.0;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "./interfaces/ILotteryPresale.sol";
@@ -20,11 +20,11 @@ import "./interfaces/ILotteryPresale.sol";
  * - Refund mechanism for lottery losers
  * - Progressive token unlocking system
  */
-contract LotteryPresale is ILotteryPresale, Ownable, ReentrancyGuard, Pausable {
+contract LotteryPresale is ILotteryPresale, Ownable2Step, ReentrancyGuard, Pausable {
     
     // State variables
     IERC20 public immutable token;           // Token being sold
-    IERC20 public immutable paymentToken;   // Payment token (USDC)
+    IERC20 public immutable paymentToken;    // Payment token (USDC)
     
     uint256 public tokenPrice;               // Price per token in USDC
     uint256 public maxBuyLimit;              // Maximum tokens/USDC a user can contribute
@@ -47,8 +47,8 @@ contract LotteryPresale is ILotteryPresale, Ownable, ReentrancyGuard, Pausable {
     mapping(address => bool) public isWinner;                  // Track if user is winner
     
     // Constants
-    uint256 public constant PERCENTAGE_PRECISION = 10000; // 100% = 10000
-    uint256 public constant USDC_DECIMALS = 6;
+    uint256 private constant PERCENTAGE_PRECISION = 10000; // 100% = 10000
+    uint256 private constant USDC_DECIMALS = 6;
     
     /**
      * @dev Constructor initializes the presale
@@ -60,12 +60,12 @@ contract LotteryPresale is ILotteryPresale, Ownable, ReentrancyGuard, Pausable {
         uint256 _maxBuyLimit,
         PresaleType _presaleType,
         uint256 _duration
-    ) {
+    ) payable {
         require(_token != address(0), "Token address cannot be zero");
         require(_paymentToken != address(0), "Payment token address cannot be zero");
-        require(_tokenPrice > 0, "Token price must be greater than zero");
-        require(_maxBuyLimit > 0, "Max buy limit must be greater than zero");
-        require(_duration > 0, "Duration must be greater than zero");
+        require(_tokenPrice != 0, "Token price must be greater than zero");
+        require(_maxBuyLimit != 0, "Max buy limit must be greater than zero");
+        require(_duration != 0, "Duration must be greater than zero");
         
         token = IERC20(_token);
         paymentToken = IERC20(_paymentToken);
@@ -220,7 +220,7 @@ contract LotteryPresale is ILotteryPresale, Ownable, ReentrancyGuard, Pausable {
         LotteryParticipation memory participation = lotteryParticipants[user];
         
         // Only non-winners can get refunds, and only if they haven't claimed yet
-        if (!participation.isSelected && !participation.hasClaimedRefund && participation.usdcContributed > 0) {
+        if (!participation.isSelected && !participation.hasClaimedRefund && participation.usdcContributed != 0) {
             return participation.usdcContributed;
         }
         
@@ -280,10 +280,12 @@ contract LotteryPresale is ILotteryPresale, Ownable, ReentrancyGuard, Pausable {
      */
     function buyTokens(uint256 usdcAmount) external override nonReentrant presaleActive {
         require(presaleType == PresaleType.REGULAR, "Use participateInLottery for lottery presale");
-        require(usdcAmount > 0, "USDC amount must be greater than zero");
+        require(usdcAmount != 0, "USDC amount must be greater than zero");
         
-        uint256 tokenAmount = (usdcAmount * (10 ** ERC20(address(token)).decimals())) / tokenPrice;
-        require(tokenAmount > 0, "Token amount must be greater than zero");
+        address thisAddress = address(this);
+        uint256 tokenDecimals = ERC20(address(token)).decimals();
+        uint256 tokenAmount = (usdcAmount * (10 ** tokenDecimals)) / tokenPrice;
+        require(tokenAmount != 0, "Token amount must be greater than zero");
         
         Purchase storage userPurchase = purchases[msg.sender];
         require(
@@ -292,12 +294,12 @@ contract LotteryPresale is ILotteryPresale, Ownable, ReentrancyGuard, Pausable {
         );
         
         require(
-            token.balanceOf(address(this)) >= tokenAmount,
+            token.balanceOf(thisAddress) >= tokenAmount,
             "Insufficient tokens in presale contract"
         );
         
         require(
-            paymentToken.transferFrom(msg.sender, address(this), usdcAmount),
+            paymentToken.transferFrom(msg.sender, thisAddress, usdcAmount),
             "USDC transfer failed"
         );
         
@@ -320,8 +322,9 @@ contract LotteryPresale is ILotteryPresale, Ownable, ReentrancyGuard, Pausable {
      */
     function participateInLottery(uint256 usdcAmount) external override nonReentrant presaleActive {
         require(presaleType == PresaleType.LOTTERY, "Use buyTokens for regular presale");
-        require(usdcAmount > 0, "USDC amount must be greater than zero");
+        require(usdcAmount != 0, "USDC amount must be greater than zero");
         
+        address thisAddress = address(this);
         LotteryParticipation storage participation = lotteryParticipants[msg.sender];
         require(
             participation.usdcContributed + usdcAmount <= maxBuyLimit,
@@ -329,7 +332,7 @@ contract LotteryPresale is ILotteryPresale, Ownable, ReentrancyGuard, Pausable {
         );
         
         require(
-            paymentToken.transferFrom(msg.sender, address(this), usdcAmount),
+            paymentToken.transferFrom(msg.sender, thisAddress, usdcAmount),
             "USDC transfer failed"
         );
         
@@ -350,7 +353,7 @@ contract LotteryPresale is ILotteryPresale, Ownable, ReentrancyGuard, Pausable {
      */
     function claimTokens() external override nonReentrant {
         uint256 claimableAmount = getClaimableAmount(msg.sender);
-        require(claimableAmount > 0, "No tokens available to claim");
+        require(claimableAmount != 0, "No tokens available to claim");
         
         purchases[msg.sender].totalClaimedTokens += claimableAmount;
         
@@ -370,7 +373,7 @@ contract LotteryPresale is ILotteryPresale, Ownable, ReentrancyGuard, Pausable {
         require(status == PresaleStatus.WINNERS_SELECTED || status == PresaleStatus.COMPLETED, "Winners not selected yet");
         
         uint256 refundAmount = getRefundableAmount(msg.sender);
-        require(refundAmount > 0, "No refund available");
+        require(refundAmount != 0, "No refund available");
         
         lotteryParticipants[msg.sender].hasClaimedRefund = true;
         
@@ -388,15 +391,18 @@ contract LotteryPresale is ILotteryPresale, Ownable, ReentrancyGuard, Pausable {
     function selectWinners(address[] calldata winners) external override onlyOwner presaleEnded {
         require(presaleType == PresaleType.LOTTERY, "Only for lottery presale");
         require(status == PresaleStatus.ENDED || status == PresaleStatus.ACTIVE, "Winners already selected");
-        require(winners.length > 0, "Must select at least one winner");
+        require(winners.length != 0, "Must select at least one winner");
         
         // Validate all winners are participants
         for (uint256 i = 0; i < winners.length; i++) {
             require(hasParticipated[winners[i]], "Winner must be a participant");
-            require(lotteryParticipants[winners[i]].usdcContributed > 0, "Winner must have contributed");
+            require(lotteryParticipants[winners[i]].usdcContributed != 0, "Winner must have contributed");
         }
         
         // Clear previous winners if any
+        for (uint256 i = 0; i < winnersList.length; i++) {
+            isWinner[winnersList[i]] = false;
+        }
         delete winnersList;
         selectedWinners = 0;
         
@@ -423,13 +429,15 @@ contract LotteryPresale is ILotteryPresale, Ownable, ReentrancyGuard, Pausable {
     function distributeTokensToWinners() external override onlyOwner {
         require(presaleType == PresaleType.LOTTERY, "Only for lottery presale");
         require(status == PresaleStatus.WINNERS_SELECTED, "Winners not selected yet");
-        require(winnersList.length > 0, "No winners selected");
+        require(winnersList.length != 0, "No winners selected");
         
-        uint256 totalTokensToDistribute = (totalUsdcRaised * (10 ** ERC20(address(token)).decimals())) / tokenPrice;
+        address thisAddress = address(this);
+        uint256 tokenDecimals = ERC20(address(token)).decimals();
+        uint256 totalTokensToDistribute = (totalUsdcRaised * (10 ** tokenDecimals)) / tokenPrice;
         uint256 tokensPerWinner = totalTokensToDistribute / winnersList.length;
         
         require(
-            token.balanceOf(address(this)) >= totalTokensToDistribute,
+            token.balanceOf(thisAddress) >= totalTokensToDistribute,
             "Insufficient tokens in contract"
         );
         
@@ -459,7 +467,7 @@ contract LotteryPresale is ILotteryPresale, Ownable, ReentrancyGuard, Pausable {
      * @dev Admin function to set token price
      */
     function setTokenPrice(uint256 newPrice) external override onlyOwner {
-        require(newPrice > 0, "Price must be greater than zero");
+        require(newPrice != 0, "Price must be greater than zero");
         tokenPrice = newPrice;
         emit TokenPriceUpdated(newPrice);
     }
@@ -468,7 +476,7 @@ contract LotteryPresale is ILotteryPresale, Ownable, ReentrancyGuard, Pausable {
      * @dev Admin function to set maximum buy limit
      */
     function setMaxBuyLimit(uint256 newLimit) external override onlyOwner {
-        require(newLimit > 0, "Limit must be greater than zero");
+        require(newLimit != 0, "Limit must be greater than zero");
         maxBuyLimit = newLimit;
         emit MaxBuyLimitUpdated(newLimit);
     }
@@ -497,9 +505,10 @@ contract LotteryPresale is ILotteryPresale, Ownable, ReentrancyGuard, Pausable {
      * @dev Admin function to withdraw USDC
      */
     function withdrawUSDC(uint256 amount) external override onlyOwner {
-        require(amount > 0, "Amount must be greater than zero");
+        require(amount != 0, "Amount must be greater than zero");
+        address thisAddress = address(this);
         require(
-            paymentToken.balanceOf(address(this)) >= amount,
+            paymentToken.balanceOf(thisAddress) >= amount,
             "Insufficient USDC balance"
         );
         
@@ -515,9 +524,10 @@ contract LotteryPresale is ILotteryPresale, Ownable, ReentrancyGuard, Pausable {
      * @dev Admin function to withdraw tokens
      */
     function emergencyWithdrawTokens(uint256 amount) external override onlyOwner {
-        require(amount > 0, "Amount must be greater than zero");
+        require(amount != 0, "Amount must be greater than zero");
+        address thisAddress = address(this);
         require(
-            token.balanceOf(address(this)) >= amount,
+            token.balanceOf(thisAddress) >= amount,
             "Insufficient token balance"
         );
         
@@ -533,7 +543,7 @@ contract LotteryPresale is ILotteryPresale, Ownable, ReentrancyGuard, Pausable {
      * @dev Admin function to add tokens to presale
      */
     function addTokensToPresale(uint256 amount) external override onlyOwner {
-        require(amount > 0, "Amount must be greater than zero");
+        require(amount != 0, "Amount must be greater than zero");
         
         require(
             token.transferFrom(msg.sender, address(this), amount),

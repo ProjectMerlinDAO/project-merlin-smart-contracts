@@ -2,7 +2,7 @@
 pragma solidity >=0.8.0 <0.9.0;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "./Bridge.sol";
 import "./Oracle.sol";
 import "./interfaces/ITokenManager.sol";
@@ -21,7 +21,7 @@ import "./interfaces/ITokenManager.sol";
  * - Initial token distribution is handled in constructor
  * - Uses OpenZeppelin's battle-tested ERC20 and Ownable implementations
  */
-contract TokenManager is ERC20, Ownable, ITokenManager {
+contract TokenManager is ERC20, Ownable2Step, ITokenManager {
     // Contract addresses for core functionality
     address public override bridge;
     address public override oracle;
@@ -48,10 +48,10 @@ contract TokenManager is ERC20, Ownable, ITokenManager {
         uint256 bridgeAmount,
         uint256 transferFee,
         uint256 operationFee
-    ) ERC20(name_, symbol_) {
-        require(bytes(name_).length > 0, "Name cannot be empty");
-        require(bytes(symbol_).length > 0, "Symbol cannot be empty");
-        require(totalSupply_ > 0, "Total supply must be positive");
+    ) ERC20(name_, symbol_) payable {
+        require(bytes(name_).length != 0, "Name cannot be empty");
+        require(bytes(symbol_).length != 0, "Symbol cannot be empty");
+        require(totalSupply_ != 0, "Total supply must be positive");
         require(transferFee <= MAX_TRANSFER_FEE, "Transfer fee too high");
         require(operationFee <= MAX_OPERATION_FEE, "Operation fee too high");
         require(totalSupply_ >= bridgeAmount, "Bridge amount exceeds supply");
@@ -108,7 +108,7 @@ contract TokenManager is ERC20, Ownable, ITokenManager {
      */
     function burnFrom(address account, uint256 amount) public override onlyBridge {
         require(account != address(0), "Cannot burn from zero address");
-        require(amount > 0, "Cannot burn zero tokens");
+        require(amount != 0, "Cannot burn zero tokens");
         _burn(account, amount);
         emit TokensBurned(account, amount);
     }
@@ -122,7 +122,7 @@ contract TokenManager is ERC20, Ownable, ITokenManager {
      */
     function mint(address to, uint256 amount) public override onlyBridge {
         require(to != address(0), "Cannot mint to zero address");
-        require(amount > 0, "Cannot mint zero tokens");
+        require(amount != 0, "Cannot mint zero tokens");
         _mint(to, amount);
         emit TokensMinted(to, amount);
     }

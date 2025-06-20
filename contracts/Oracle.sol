@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity >=0.8.0 <0.9.0;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "./Bridge.sol";
 
 /**
@@ -19,7 +19,7 @@ import "./Bridge.sol";
  * - Validated fee updates
  * - Uses OpenZeppelin's Ownable for access control
  */
-contract Oracle is Ownable {
+contract Oracle is Ownable2Step {
     // Core state variables
     address public bridge;
 
@@ -38,7 +38,7 @@ contract Oracle is Ownable {
      * @dev Constructor sets up the Oracle with initial owner
      * @param initialOwner Address that will control the Oracle
      */
-    constructor(address initialOwner) {
+    constructor(address initialOwner) payable {
         require(initialOwner != address(0), "Invalid owner address");
         transferOwnership(initialOwner);
     }
@@ -52,7 +52,7 @@ contract Oracle is Ownable {
      * - Validates bridge address
      * - Emits event for tracking
      */
-    function setBridge(address _bridge) external onlyOwner {
+    function setBridge(address _bridge) external payable onlyOwner {
         require(_bridge != address(0), "Invalid bridge address");
         require(bridge == address(0), "Bridge already set"); // Can only be set once
         bridge = _bridge;
@@ -68,7 +68,7 @@ contract Oracle is Ownable {
      * - Validates bridge initialization
      * - Emits event for tracking
      */
-    function updateTransferFee(uint256 fee) external onlyOwner {
+    function updateTransferFee(uint256 fee) external payable onlyOwner {
         require(bridge != address(0), "Bridge not initialized");
         Bridge(bridge).updateTransferFee(fee);
         emit FeeUpdated(fee, Bridge(bridge).operationFee());
@@ -83,7 +83,7 @@ contract Oracle is Ownable {
      * - Validates bridge initialization
      * - Emits event for tracking
      */
-    function updateOperationFee(uint256 fee) external onlyOwner {
+    function updateOperationFee(uint256 fee) external payable onlyOwner {
         require(bridge != address(0), "Bridge not initialized");
         Bridge(bridge).updateOperationFee(fee);
         emit FeeUpdated(Bridge(bridge).transferFee(), fee);
@@ -97,7 +97,7 @@ contract Oracle is Ownable {
      * - Validates bridge initialization
      * - Emits event for tracking
      */
-    function pauseBridge() external onlyOwner {
+    function pauseBridge() external payable onlyOwner {
         require(bridge != address(0), "Bridge not initialized");
         Bridge(bridge).pause();
         emit BridgeStateChanged(true);
@@ -111,7 +111,7 @@ contract Oracle is Ownable {
      * - Validates bridge initialization
      * - Emits event for tracking
      */
-    function unpauseBridge() external onlyOwner {
+    function unpauseBridge() external payable onlyOwner {
         require(bridge != address(0), "Bridge not initialized");
         Bridge(bridge).unpause();
         emit BridgeStateChanged(false);
@@ -125,7 +125,7 @@ contract Oracle is Ownable {
      * - Only callable by owner
      * - Validates bridge initialization and recipient
      */
-    function withdrawFeesTo(address to) external onlyOwner {
+    function withdrawFeesTo(address to) external payable onlyOwner {
         require(bridge != address(0), "Bridge not initialized");
         require(to != address(0), "Invalid recipient address");
         Bridge(bridge).withdrawFees(to);
@@ -139,7 +139,7 @@ contract Oracle is Ownable {
      * - Only callable by owner
      * - Validates bridge initialization and new address
      */
-    function changeOffchainAddress(address newOffchain) external onlyOwner {
+    function changeOffchainAddress(address newOffchain) external payable onlyOwner {
         require(bridge != address(0), "Bridge not initialized");
         require(newOffchain != address(0), "Invalid offchain address");
         Bridge(bridge).changeOffchain(newOffchain);
@@ -154,7 +154,7 @@ contract Oracle is Ownable {
      * - Prevents double processing
      * - Emits event for tracking
      */
-    function markTransactionProcessed(bytes32 txHash) external onlyOwner {
+    function markTransactionProcessed(bytes32 txHash) external payable onlyOwner {
         require(!processedTransactions[txHash], "Transaction already processed");
         processedTransactions[txHash] = true;
         emit TransactionProcessed(txHash);
@@ -169,7 +169,7 @@ contract Oracle is Ownable {
      * - Prevents double validation
      * - Emits event for tracking
      */
-    function markTransactionValidated(bytes32 txHash) external onlyOwner {
+    function markTransactionValidated(bytes32 txHash) external payable onlyOwner {
         require(!validatedTransactions[txHash], "Transaction already validated");
         validatedTransactions[txHash] = true;
         emit TransactionValidated(txHash);

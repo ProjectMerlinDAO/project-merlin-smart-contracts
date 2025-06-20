@@ -39,8 +39,21 @@ describe("TokenManager", function () {
     bridge = await ethers.getContractAt("Bridge", bridgeAddress) as Bridge;
     oracle = await ethers.getContractAt("Oracle", oracleAddress) as Oracle;
 
+    // Accept ownership for Oracle (required by Ownable2Step)
+    await oracle.connect(owner).acceptOwnership();
+    
     // Set bridge address in Oracle
     await oracle.setBridge(bridgeAddress);
+
+    // For Bridge, the owner is Oracle, so we need to impersonate Oracle to accept ownership
+    const oracleSigner = await ethers.getImpersonatedSigner(oracleAddress);
+    await ethers.provider.send("hardhat_setBalance", [
+      oracleSigner.address,
+      "0x1000000000000000000"
+    ]);
+    
+    // Accept ownership for Bridge (required by Ownable2Step)
+    await bridge.connect(oracleSigner).acceptOwnership();
   });
 
   describe("Deployment", function () {
@@ -124,6 +137,7 @@ describe("TokenManager", function () {
         await oracleSigner.getAddress(),
         "0x1000000000000000000"
       ]);
+      
       await bridge.connect(oracleSigner).changeOffchain(user1.address);
       
       // Now only user1 can mint
@@ -143,6 +157,7 @@ describe("TokenManager", function () {
       const newTransferFee = 200n; // 2%
       const newOperationFee = ethers.parseEther("2"); // 2 MRLN tokens
 
+      // Oracle needs to call these functions through the Oracle contract
       await oracle.updateTransferFee(newTransferFee);
       await oracle.updateOperationFee(newOperationFee);
 
@@ -152,8 +167,13 @@ describe("TokenManager", function () {
 
     it("Should allow Oracle to pause/unpause bridge", async function () {
       await oracle.pauseBridge();
+      
+      // Try to use bridge while paused
+      const burnAmount = ethers.parseEther("100");
+      await tokenManager.connect(user1).approve(bridge.getAddress(), burnAmount);
+      
       await expect(bridge.connect(user1).receiveAsset(
-        ethers.parseEther("100"),
+        burnAmount,
         "ethereum",
         user2.address
       )).to.be.revertedWith("Pausable: paused");

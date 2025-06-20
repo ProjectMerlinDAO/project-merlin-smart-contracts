@@ -3,7 +3,7 @@ pragma solidity >=0.8.0 <0.9.0;
 
 import "./TokenManager.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 
 /**
@@ -20,17 +20,17 @@ import "@openzeppelin/contracts/security/Pausable.sol";
  * - Fee calculations protected against overflow
  * - Uses OpenZeppelin's Ownable and Pausable for security
  */
-contract Bridge is Ownable, Pausable {
+contract Bridge is Ownable2Step, Pausable {
     // Core state variables
     address public tokenAddress;
     uint256 public transferFee;    // percentage (e.g., 100 = 1%)
     uint256 public operationFee;   // flat fee in tokens
-    uint256 public constant FEE_DENOMINATOR = 10000;
+    uint256 private constant FEE_DENOMINATOR = 10000;
     address public offchainProcessor;
 
     // Maximum fee constraints
-    uint256 public constant MAX_TRANSFER_FEE = 1000; // 10%
-    uint256 public constant MAX_OPERATION_FEE = 1000 * 10**18; // 1000 tokens
+    uint256 private constant MAX_TRANSFER_FEE = 1000; // 10%
+    uint256 private constant MAX_OPERATION_FEE = 1000 * 10**18; // 1000 tokens
 
     // Events for tracking bridge operations
     event BridgeStarted(
@@ -79,7 +79,7 @@ contract Bridge is Ownable, Pausable {
         uint256 _operationFee,
         address oracle,
         address _offchainProcessor
-    ) {
+    ) payable {
         require(_token != address(0), "Invalid token address");
         require(oracle != address(0), "Invalid oracle address");
         require(_offchainProcessor != address(0), "Invalid processor address");
@@ -109,13 +109,14 @@ contract Bridge is Ownable, Pausable {
         string memory destinationChain,
         address destinationAddress
     ) external whenNotPaused {
-        require(amount > 0, "Amount must be greater than 0");
-        require(bytes(destinationChain).length > 0, "Invalid destination chain");
+        require(amount != 0, "Amount must be greater than 0");
+        require(bytes(destinationChain).length != 0, "Invalid destination chain");
         require(destinationAddress != address(0), "Invalid destination address");
 
         TokenManager token = TokenManager(tokenAddress);
-
-        uint256 allowance = token.allowance(msg.sender, address(this));
+        address thisAddress = address(this);
+        
+        uint256 allowance = token.allowance(msg.sender, thisAddress);
         require(allowance >= amount, "Insufficient allowance");
 
         // Calculate fees with overflow protection
@@ -125,10 +126,10 @@ contract Bridge is Ownable, Pausable {
 
         uint256 amountAfterFee = amount - totalFee;
 
-        require(token.transferFrom(msg.sender, address(this), amount), "Transfer failed");
+        require(token.transferFrom(msg.sender, thisAddress, amount), "Transfer failed");
 
         // Burn tokens after successful transfer
-        token.burnFrom(address(this), amountAfterFee);
+        token.burnFrom(thisAddress, amountAfterFee);
 
         emit BridgeStarted(msg.sender, amount, amountAfterFee, destinationChain, destinationAddress);
     }
@@ -147,7 +148,7 @@ contract Bridge is Ownable, Pausable {
         uint256 amount
     ) external onlyOffchain whenNotPaused {
         require(to != address(0), "Invalid recipient");
-        require(amount > 0, "Amount must be greater than 0");
+        require(amount != 0, "Amount must be greater than 0");
 
         TokenManager token = TokenManager(tokenAddress);
         token.mint(to, amount);
@@ -161,7 +162,7 @@ contract Bridge is Ownable, Pausable {
      *
      * Security: Only callable by owner (Oracle)
      */
-    function updateTransferFee(uint256 newFee) external onlyOwner {
+    function updateTransferFee(uint256 newFee) external payable onlyOwner {
         require(newFee <= MAX_TRANSFER_FEE, "Fee too high");
         transferFee = newFee;
         emit FeeUpdated(newFee, operationFee);
@@ -173,7 +174,7 @@ contract Bridge is Ownable, Pausable {
      *
      * Security: Only callable by owner (Oracle)
      */
-    function updateOperationFee(uint256 newFee) external onlyOwner {
+    function updateOperationFee(uint256 newFee) external payable onlyOwner {
         require(newFee <= MAX_OPERATION_FEE, "Fee too high");
         operationFee = newFee;
         emit FeeUpdated(transferFee, newFee);
@@ -183,7 +184,7 @@ contract Bridge is Ownable, Pausable {
      * @dev Pauses bridge operations
      * Security: Only callable by owner (Oracle)
      */
-    function pause() external onlyOwner {
+    function pause() external payable onlyOwner {
         _pause();
     }
 
@@ -191,7 +192,7 @@ contract Bridge is Ownable, Pausable {
      * @dev Unpauses bridge operations
      * Security: Only callable by owner (Oracle)
      */
-    function unpause() external onlyOwner {
+    function unpause() external payable onlyOwner {
         _unpause();
     }
 
@@ -203,11 +204,12 @@ contract Bridge is Ownable, Pausable {
      * - Only callable by owner (Oracle)
      * - Protected against reentrancy by transfer pattern
      */
-    function withdrawFees(address to) external onlyOwner {
+    function withdrawFees(address to) external payable onlyOwner {
         require(to != address(0), "Invalid recipient");
         IERC20 token = IERC20(tokenAddress);
-        uint256 balance = token.balanceOf(address(this));
-        require(balance > 0, "No fees to withdraw");
+        address thisAddress = address(this);
+        uint256 balance = token.balanceOf(thisAddress);
+        require(balance != 0, "No fees to withdraw");
         require(token.transfer(to, balance), "Fee withdrawal failed");
     }
 
@@ -217,7 +219,7 @@ contract Bridge is Ownable, Pausable {
      *
      * Security: Only callable by owner (Oracle)
      */
-    function changeOffchain(address newOffchainProcessor) external onlyOwner {
+    function changeOffchain(address newOffchainProcessor) external payable onlyOwner {
         require(newOffchainProcessor != address(0), "Invalid processor address");
         address oldProcessor = offchainProcessor;
         offchainProcessor = newOffchainProcessor;

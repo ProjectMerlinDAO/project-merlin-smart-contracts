@@ -3,7 +3,7 @@ pragma solidity >=0.8.0 <0.9.0;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "./interfaces/ITokenPresale.sol";
@@ -28,11 +28,11 @@ import "./interfaces/ITokenPresale.sol";
  * - Only owner can modify critical parameters
  * - Safe math operations to prevent overflow/underflow
  */
-contract TokenPresale is ITokenPresale, Ownable, ReentrancyGuard, Pausable {
+contract TokenPresale is ITokenPresale, Ownable2Step, ReentrancyGuard, Pausable {
     
     // State variables
     IERC20 public immutable token;           // Token being sold
-    IERC20 public immutable paymentToken;   // Payment token (USDC)
+    IERC20 public immutable paymentToken;    // Payment token (USDC)
     
     uint256 public tokenPrice;               // Price per token in USDC (with 6 decimals for USDC)
     uint256 public maxBuyLimit;              // Maximum tokens a user can buy
@@ -47,8 +47,8 @@ contract TokenPresale is ITokenPresale, Ownable, ReentrancyGuard, Pausable {
     mapping(address => bool) public hasPurchased;   // Track if user has purchased
     
     // Constants
-    uint256 public constant PERCENTAGE_PRECISION = 10000; // 100% = 10000
-    uint256 public constant USDC_DECIMALS = 6;
+    uint256 private constant PERCENTAGE_PRECISION = 10000; // 100% = 10000
+    uint256 private constant USDC_DECIMALS = 6;
     
     /**
      * @dev Constructor initializes the presale with token and payment token
@@ -62,11 +62,11 @@ contract TokenPresale is ITokenPresale, Ownable, ReentrancyGuard, Pausable {
         address _paymentToken,
         uint256 _tokenPrice,
         uint256 _maxBuyLimit
-    ) {
+    ) payable {
         require(_token != address(0), "Token address cannot be zero");
         require(_paymentToken != address(0), "Payment token address cannot be zero");
-        require(_tokenPrice > 0, "Token price must be greater than zero");
-        require(_maxBuyLimit > 0, "Max buy limit must be greater than zero");
+        require(_tokenPrice != 0, "Token price must be greater than zero");
+        require(_maxBuyLimit != 0, "Max buy limit must be greater than zero");
         
         token = IERC20(_token);
         paymentToken = IERC20(_paymentToken);
@@ -90,6 +90,7 @@ contract TokenPresale is ITokenPresale, Ownable, ReentrancyGuard, Pausable {
      * @dev Returns complete presale information
      */
     function presaleInfo() external view override returns (PresaleInfo memory) {
+        address thisAddress = address(this);
         return PresaleInfo({
             token: address(token),
             paymentToken: address(paymentToken),
@@ -213,11 +214,14 @@ contract TokenPresale is ITokenPresale, Ownable, ReentrancyGuard, Pausable {
      * @param usdcAmount Amount of USDC to spend
      */
     function buyTokens(uint256 usdcAmount) external override nonReentrant presaleActive {
-        require(usdcAmount > 0, "USDC amount must be greater than zero");
+        require(usdcAmount != 0, "USDC amount must be greater than zero");
+        
+        address thisAddress = address(this);
         
         // Calculate token amount to buy
-        uint256 tokenAmount = (usdcAmount * (10 ** ERC20(address(token)).decimals())) / tokenPrice;
-        require(tokenAmount > 0, "Token amount must be greater than zero");
+        uint256 tokenDecimals = ERC20(address(token)).decimals();
+        uint256 tokenAmount = (usdcAmount * (10 ** tokenDecimals)) / tokenPrice;
+        require(tokenAmount != 0, "Token amount must be greater than zero");
         
         // Check if user would exceed max buy limit
         Purchase storage userPurchase = purchases[msg.sender];
@@ -228,13 +232,13 @@ contract TokenPresale is ITokenPresale, Ownable, ReentrancyGuard, Pausable {
         
         // Check if contract has enough tokens
         require(
-            token.balanceOf(address(this)) >= tokenAmount,
+            token.balanceOf(thisAddress) >= tokenAmount,
             "Insufficient tokens in presale contract"
         );
         
         // Transfer USDC from user to contract
         require(
-            paymentToken.transferFrom(msg.sender, address(this), usdcAmount),
+            paymentToken.transferFrom(msg.sender, thisAddress, usdcAmount),
             "USDC transfer failed"
         );
         
@@ -261,7 +265,7 @@ contract TokenPresale is ITokenPresale, Ownable, ReentrancyGuard, Pausable {
      */
     function claimTokens() external override nonReentrant {
         uint256 claimableAmount = getClaimableAmount(msg.sender);
-        require(claimableAmount > 0, "No tokens available to claim");
+        require(claimableAmount != 0, "No tokens available to claim");
         
         // Update user's claimed tokens BEFORE transfer (reentrancy protection)
         purchases[msg.sender].totalClaimedTokens += claimableAmount;
@@ -280,7 +284,7 @@ contract TokenPresale is ITokenPresale, Ownable, ReentrancyGuard, Pausable {
      * @param newPrice New price per token in USDC
      */
     function setTokenPrice(uint256 newPrice) external override onlyOwner {
-        require(newPrice > 0, "Price must be greater than zero");
+        require(newPrice != 0, "Price must be greater than zero");
         tokenPrice = newPrice;
         emit TokenPriceUpdated(newPrice);
     }
@@ -290,7 +294,7 @@ contract TokenPresale is ITokenPresale, Ownable, ReentrancyGuard, Pausable {
      * @param newLimit New maximum buy limit
      */
     function setMaxBuyLimit(uint256 newLimit) external override onlyOwner {
-        require(newLimit > 0, "Limit must be greater than zero");
+        require(newLimit != 0, "Limit must be greater than zero");
         maxBuyLimit = newLimit;
         emit MaxBuyLimitUpdated(newLimit);
     }
@@ -340,9 +344,10 @@ contract TokenPresale is ITokenPresale, Ownable, ReentrancyGuard, Pausable {
      * @param amount Amount of USDC to withdraw
      */
     function withdrawUSDC(uint256 amount) external override onlyOwner {
-        require(amount > 0, "Amount must be greater than zero");
+        require(amount != 0, "Amount must be greater than zero");
+        address thisAddress = address(this);
         require(
-            paymentToken.balanceOf(address(this)) >= amount,
+            paymentToken.balanceOf(thisAddress) >= amount,
             "Insufficient USDC balance"
         );
         
@@ -359,9 +364,10 @@ contract TokenPresale is ITokenPresale, Ownable, ReentrancyGuard, Pausable {
      * @param amount Amount of tokens to withdraw
      */
     function emergencyWithdrawTokens(uint256 amount) external override onlyOwner {
-        require(amount > 0, "Amount must be greater than zero");
+        require(amount != 0, "Amount must be greater than zero");
+        address thisAddress = address(this);
         require(
-            token.balanceOf(address(this)) >= amount,
+            token.balanceOf(thisAddress) >= amount,
             "Insufficient token balance"
         );
         
@@ -378,7 +384,7 @@ contract TokenPresale is ITokenPresale, Ownable, ReentrancyGuard, Pausable {
      * @param amount Amount of tokens to add
      */
     function addTokensToPresale(uint256 amount) external override onlyOwner {
-        require(amount > 0, "Amount must be greater than zero");
+        require(amount != 0, "Amount must be greater than zero");
         
         require(
             token.transferFrom(msg.sender, address(this), amount),
@@ -389,14 +395,14 @@ contract TokenPresale is ITokenPresale, Ownable, ReentrancyGuard, Pausable {
     /**
      * @dev Emergency pause function
      */
-    function pause() external onlyOwner {
+    function pause() external payable onlyOwner {
         _pause();
     }
     
     /**
      * @dev Emergency unpause function
      */
-    function unpause() external onlyOwner {
+    function unpause() external payable onlyOwner {
         _unpause();
     }
     
