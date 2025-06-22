@@ -1,0 +1,10 @@
+{
+  "network": "arbitrumSepolia",
+  "mockUSDC": "0x1A187060EF0fE163E1d9f820131a2Af983982Ac4",
+  "mockUSDT": "0x9E2718A1f225baF94b7132993401bE959ce03640",
+  "usdcDecimals": "6",
+  "usdtDecimals": "6",
+  "deployerUsdcBalance": "1000000000000",
+  "deployerUsdtBalance": "1000000000000",
+  "deployedAt": "2025-06-21T22:12:14.404Z"
+}

@@ -1,0 +1,15 @@
+{
+  "network": "arbitrumSepolia",
+  "usdcToken": "0x1A187060EF0fE163E1d9f820131a2Af983982Ac4",
+  "usdtToken": "0x9E2718A1f225baF94b7132993401bE959ce03640",
+  "fundedUsers": [
+    "0x5474Ebc6f9FA8A598203d7abe2893E2CbCC942A7",
+    "0x93573d1DAa58f892EDE7F12324607881E1673e05",
+    "0xf80629Eef6FD3208b72E8b26504Ff64eB53db6d2",
+    "0x03dBA63f6E20261707d393f9EBF2Df41826A26b8",
+    "0x0772fC5bb6B270a7F5fc78bf610034e66Dae38f4"
+  ],
+  "amountPerUser": "1000.0",
+  "deployerAmount": "5000",
+  "fundedAt": "2025-06-21T22:34:38.337Z"
+}

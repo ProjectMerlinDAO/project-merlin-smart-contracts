@@ -1,0 +1,10 @@
+{
+  "network": "arbitrumSepolia",
+  "mrlToken": "0x9ee7a29264e631fcE96f5E68A50CB5Aa2a1dFb15",
+  "name": "Merlin Token",
+  "symbol": "MRL",
+  "decimals": "18",
+  "totalSupply": "10000000000000000000000000",
+  "deployerBalance": "10000000000000000000000000",
+  "deployedAt": "2025-06-21T22:08:29.326Z"
+}

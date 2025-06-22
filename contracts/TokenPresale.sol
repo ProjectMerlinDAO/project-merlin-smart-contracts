@@ -12,70 +12,95 @@ import "./interfaces/ITokenPresale.sol";
  * @title TokenPresale
  * @dev Implementation of a token presale with time-locked distribution
  * 
- * This contract allows users to buy tokens with USDC during a presale period.
+ * This contract allows users to buy tokens with USDC or USDT during a presale period.
  * The admin can control the unlock percentage, allowing for gradual token release.
  * 
  * Key features:
- * - Users buy tokens with USDC at a price set by admin
- * - Maximum buy limit per user to ensure fair distribution
+ * - Users buy tokens with USDC or USDT at a price set by admin
+ * - Minimum and maximum buy limits per user to ensure fair distribution
  * - Time-locked distribution controlled by admin unlock percentages
  * - Secure handling of funds with emergency withdrawal capabilities
  * - Comprehensive event logging for transparency
+ * - Balance checking before and after transfers to prevent fee-on-transfer issues
  * 
  * Security considerations:
  * - Uses OpenZeppelin's ReentrancyGuard to prevent reentrancy attacks
  * - Pausable functionality for emergency stops
  * - Only owner can modify critical parameters
  * - Safe math operations to prevent overflow/underflow
+ * - Balance validation before and after transfers
  */
 contract TokenPresale is ITokenPresale, Ownable2Step, ReentrancyGuard, Pausable {
     
     // State variables
     IERC20 public immutable token;           // Token being sold
-    IERC20 public immutable paymentToken;    // Payment token (USDC)
+    IERC20 public immutable usdc;            // USDC payment token
+    IERC20 public immutable usdt;            // USDT payment token
     
-    uint256 public tokenPrice;               // Price per token in USDC (with 6 decimals for USDC)
-    uint256 public maxBuyLimit;              // Maximum tokens a user can buy
+    uint256 public tokenPrice;               // Price per token in payment token (with 6 decimals for USDC/USDT)
+    uint256 public minBuyLimit;              // Minimum payment amount per purchase
+    uint256 public maxBuyLimit;              // Maximum payment amount per user total
+    uint256 public totalTokensForSale;       // Total tokens available for sale
     uint256 public currentUnlockPercentage;  // Current unlock percentage (0-10000, where 10000 = 100%)
     bool public isActive;                    // Whether presale is active
     uint256 public totalTokensSold;          // Total tokens sold
-    uint256 public totalUsdcRaised;          // Total USDC raised
+    uint256 public totalPaymentRaised;       // Total payment tokens raised (USDC + USDT)
     
     // Mappings
-    mapping(address => Purchase) public purchases;  // User purchases
-    address[] public purchasersList;                // List of all purchasers
-    mapping(address => bool) public hasPurchased;   // Track if user has purchased
+    mapping(address => Purchase) public purchases;      // User purchases
+    mapping(address => bool) public acceptedPayments;   // Accepted payment tokens
+    address[] public purchasersList;                    // List of all purchasers
+    mapping(address => bool) public hasPurchased;       // Track if user has purchased
     
     // Constants
     uint256 private constant PERCENTAGE_PRECISION = 10000; // 100% = 10000
-    uint256 private constant USDC_DECIMALS = 6;
+    uint256 private constant PAYMENT_DECIMALS = 6;         // USDC and USDT have 6 decimals
     
     /**
-     * @dev Constructor initializes the presale with token and payment token
+     * @dev Constructor initializes the presale with token and payment tokens
      * @param _token Address of the token being sold
-     * @param _paymentToken Address of the payment token (USDC)
-     * @param _tokenPrice Initial price per token in USDC (with 6 decimals)
-     * @param _maxBuyLimit Maximum tokens a user can buy
+     * @param _usdc Address of USDC token
+     * @param _usdt Address of USDT token
+     * @param _tokenPrice Initial price per token in payment token (with 6 decimals)
+     * @param _minBuyLimit Minimum payment amount per purchase
+     * @param _maxBuyLimit Maximum payment amount per user total
+     * @param _totalTokensForSale Total tokens available for sale
      */
     constructor(
         address _token,
-        address _paymentToken,
+        address _usdc,
+        address _usdt,
         uint256 _tokenPrice,
-        uint256 _maxBuyLimit
+        uint256 _minBuyLimit,
+        uint256 _maxBuyLimit,
+        uint256 _totalTokensForSale
     ) payable {
         require(_token != address(0), "Token address cannot be zero");
-        require(_paymentToken != address(0), "Payment token address cannot be zero");
+        require(_usdc != address(0), "USDC address cannot be zero");
+        require(_usdt != address(0), "USDT address cannot be zero");
         require(_tokenPrice != 0, "Token price must be greater than zero");
+        require(_minBuyLimit != 0, "Min buy limit must be greater than zero");
         require(_maxBuyLimit != 0, "Max buy limit must be greater than zero");
+        require(_maxBuyLimit > _minBuyLimit, "Max buy limit must be greater than min buy limit");
+        require(_totalTokensForSale != 0, "Total tokens for sale must be greater than zero");
         
         token = IERC20(_token);
-        paymentToken = IERC20(_paymentToken);
+        usdc = IERC20(_usdc);
+        usdt = IERC20(_usdt);
         tokenPrice = _tokenPrice;
+        minBuyLimit = _minBuyLimit;
         maxBuyLimit = _maxBuyLimit;
+        totalTokensForSale = _totalTokensForSale;
         currentUnlockPercentage = 0;
         isActive = false;
         
-        emit PresaleCreated(_token, _paymentToken, _tokenPrice, _maxBuyLimit);
+        // Set accepted payment tokens
+        acceptedPayments[_usdc] = true;
+        acceptedPayments[_usdt] = true;
+        
+        emit PresaleCreated(_token, _usdc, _tokenPrice, _minBuyLimit, _maxBuyLimit, _totalTokensForSale);
+        emit PaymentTokenAdded(_usdc);
+        emit PaymentTokenAdded(_usdt);
     }
     
     /**
@@ -87,20 +112,58 @@ contract TokenPresale is ITokenPresale, Ownable2Step, ReentrancyGuard, Pausable 
     }
     
     /**
+     * @dev Modifier to check if payment token is accepted
+     */
+    modifier validPaymentToken(address _paymentToken) {
+        require(acceptedPayments[_paymentToken], "Payment token not accepted");
+        _;
+    }
+    
+    /**
      * @dev Returns complete presale information
      */
     function presaleInfo() external view override returns (PresaleInfo memory) {
-        address thisAddress = address(this);
         return PresaleInfo({
             token: address(token),
-            paymentToken: address(paymentToken),
+            paymentToken: address(usdc), // For backward compatibility
             tokenPrice: tokenPrice,
+            minBuyLimit: minBuyLimit,
             maxBuyLimit: maxBuyLimit,
+            totalTokensForSale: totalTokensForSale,
             currentUnlockPercentage: currentUnlockPercentage,
             isActive: isActive,
             totalTokensSold: totalTokensSold,
-            totalUsdcRaised: totalUsdcRaised
+            totalPaymentRaised: totalPaymentRaised
         });
+    }
+    
+    /**
+     * @dev Returns extended presale information including all payment tokens
+     */
+    function getExtendedPresaleInfo() external view returns (ExtendedPresaleInfo memory) {
+        return ExtendedPresaleInfo({
+            token: address(token),
+            usdc: address(usdc),
+            usdt: address(usdt),
+            tokenPrice: tokenPrice,
+            minBuyLimit: minBuyLimit,
+            maxBuyLimit: maxBuyLimit,
+            totalTokensForSale: totalTokensForSale,
+            currentUnlockPercentage: currentUnlockPercentage,
+            isActive: isActive,
+            totalTokensSold: totalTokensSold,
+            totalPaymentRaised: totalPaymentRaised,
+            soldPercentage: getSoldPercentage()
+        });
+    }
+    
+    /**
+     * @dev Returns the percentage of tokens sold
+     * @return percentage Percentage of tokens sold (0-10000, where 10000 = 100%)
+     */
+    function getSoldPercentage() public view returns (uint256) {
+        if (totalTokensForSale == 0) return 0;
+        return (totalTokensSold * PERCENTAGE_PRECISION) / totalTokensForSale;
     }
     
     /**
@@ -210,41 +273,58 @@ contract TokenPresale is ITokenPresale, Ownable2Step, ReentrancyGuard, Pausable 
     }
     
     /**
-     * @dev Allows users to buy tokens with USDC
-     * @param usdcAmount Amount of USDC to spend
+     * @dev Allows users to buy tokens with USDC or USDT
+     * @param paymentToken Address of payment token (USDC or USDT)
+     * @param paymentAmount Amount of payment token to spend
      */
-    function buyTokens(uint256 usdcAmount) external override nonReentrant presaleActive {
-        require(usdcAmount != 0, "USDC amount must be greater than zero");
+    function buyTokens(address paymentToken, uint256 paymentAmount) external nonReentrant presaleActive validPaymentToken(paymentToken) whenNotPaused {
+        require(paymentAmount >= minBuyLimit, "Payment amount below minimum limit");
+        require(paymentAmount != 0, "Payment amount must be greater than zero");
         
-        address thisAddress = address(this);
+        Purchase storage userPurchase = purchases[msg.sender];
+        
+        // Check if user would exceed max buy limit (total payment amount)
+        require(
+            userPurchase.paymentSpent + paymentAmount <= maxBuyLimit,
+            "Would exceed maximum buy limit"
+        );
         
         // Calculate token amount to buy
         uint256 tokenDecimals = ERC20(address(token)).decimals();
-        uint256 tokenAmount = (usdcAmount * (10 ** tokenDecimals)) / tokenPrice;
+        uint256 tokenAmount = (paymentAmount * (10 ** tokenDecimals)) / tokenPrice;
         require(tokenAmount != 0, "Token amount must be greater than zero");
         
-        // Check if user would exceed max buy limit
-        Purchase storage userPurchase = purchases[msg.sender];
+        // Check if there are enough tokens available for sale
         require(
-            userPurchase.totalTokensBought + tokenAmount <= maxBuyLimit,
-            "Would exceed maximum buy limit"
+            totalTokensSold + tokenAmount <= totalTokensForSale,
+            "Would exceed total tokens for sale"
         );
         
         // Check if contract has enough tokens
         require(
-            token.balanceOf(thisAddress) >= tokenAmount,
+            token.balanceOf(address(this)) >= tokenAmount,
             "Insufficient tokens in presale contract"
         );
         
-        // Transfer USDC from user to contract
+        // Get balance before transfer to handle fee-on-transfer tokens
+        uint256 preBalance = IERC20(paymentToken).balanceOf(address(this));
+        
+        // Transfer payment token from user to contract
         require(
-            paymentToken.transferFrom(msg.sender, thisAddress, usdcAmount),
-            "USDC transfer failed"
+            IERC20(paymentToken).transferFrom(msg.sender, address(this), paymentAmount),
+            "Payment transfer failed"
         );
         
+        // Get balance after transfer and calculate actual received amount
+        uint256 postBalance = IERC20(paymentToken).balanceOf(address(this));
+        uint256 actualReceived = postBalance - preBalance;
+        
+        // Recalculate token amount based on actual received amount
+        uint256 actualTokenAmount = (actualReceived * (10 ** tokenDecimals)) / tokenPrice;
+        
         // Update user's purchase
-        userPurchase.totalTokensBought += tokenAmount;
-        userPurchase.usdcSpent += usdcAmount;
+        userPurchase.totalTokensBought += actualTokenAmount;
+        userPurchase.paymentSpent += actualReceived;
         
         // Add to purchasers list if first purchase
         if (!hasPurchased[msg.sender]) {
@@ -253,17 +333,17 @@ contract TokenPresale is ITokenPresale, Ownable2Step, ReentrancyGuard, Pausable 
         }
         
         // Update global stats
-        totalTokensSold += tokenAmount;
-        totalUsdcRaised += usdcAmount;
+        totalTokensSold += actualTokenAmount;
+        totalPaymentRaised += actualReceived;
         
-        emit TokensPurchased(msg.sender, usdcAmount, tokenAmount);
+        emit TokensPurchased(msg.sender, paymentToken, actualReceived, actualTokenAmount);
     }
     
     /**
      * @dev Allows users to claim their unlocked tokens
      * Only tokens that are unlocked and not yet claimed can be claimed
      */
-    function claimTokens() external override nonReentrant {
+    function claimTokens() external override nonReentrant whenNotPaused {
         uint256 claimableAmount = getClaimableAmount(msg.sender);
         require(claimableAmount != 0, "No tokens available to claim");
         
@@ -281,7 +361,7 @@ contract TokenPresale is ITokenPresale, Ownable2Step, ReentrancyGuard, Pausable 
     
     /**
      * @dev Admin function to set token price
-     * @param newPrice New price per token in USDC
+     * @param newPrice New price per token in payment token
      */
     function setTokenPrice(uint256 newPrice) external override onlyOwner {
         require(newPrice != 0, "Price must be greater than zero");
@@ -290,13 +370,35 @@ contract TokenPresale is ITokenPresale, Ownable2Step, ReentrancyGuard, Pausable 
     }
     
     /**
+     * @dev Admin function to set minimum buy limit
+     * @param newLimit New minimum buy limit
+     */
+    function setMinBuyLimit(uint256 newLimit) external onlyOwner {
+        require(newLimit != 0, "Limit must be greater than zero");
+        require(newLimit < maxBuyLimit, "Min limit must be less than max limit");
+        minBuyLimit = newLimit;
+        emit MinBuyLimitUpdated(newLimit);
+    }
+    
+    /**
      * @dev Admin function to set maximum buy limit
      * @param newLimit New maximum buy limit
      */
     function setMaxBuyLimit(uint256 newLimit) external override onlyOwner {
         require(newLimit != 0, "Limit must be greater than zero");
+        require(newLimit > minBuyLimit, "Max limit must be greater than min limit");
         maxBuyLimit = newLimit;
         emit MaxBuyLimitUpdated(newLimit);
+    }
+    
+    /**
+     * @dev Admin function to set total tokens for sale
+     * @param newTotal New total tokens for sale
+     */
+    function setTotalTokensForSale(uint256 newTotal) external onlyOwner {
+        require(newTotal >= totalTokensSold, "Cannot set below tokens already sold");
+        totalTokensForSale = newTotal;
+        emit TotalTokensForSaleUpdated(newTotal);
     }
     
     /**
@@ -340,23 +442,31 @@ contract TokenPresale is ITokenPresale, Ownable2Step, ReentrancyGuard, Pausable 
     }
     
     /**
-     * @dev Admin function to withdraw USDC from contract
+     * @dev Admin function to withdraw payment tokens from contract
+     * @param paymentToken Address of payment token to withdraw
+     * @param amount Amount of payment token to withdraw
+     */
+    function withdrawPaymentToken(address paymentToken, uint256 amount) public onlyOwner validPaymentToken(paymentToken) {
+        require(amount != 0, "Amount must be greater than zero");
+        require(
+            IERC20(paymentToken).balanceOf(address(this)) >= amount,
+            "Insufficient balance"
+        );
+        
+        require(
+            IERC20(paymentToken).transfer(owner(), amount),
+            "Transfer failed"
+        );
+        
+        emit PaymentWithdrawn(paymentToken, owner(), amount);
+    }
+    
+    /**
+     * @dev Admin function to withdraw USDC from contract (backward compatibility)
      * @param amount Amount of USDC to withdraw
      */
     function withdrawUSDC(uint256 amount) external override onlyOwner {
-        require(amount != 0, "Amount must be greater than zero");
-        address thisAddress = address(this);
-        require(
-            paymentToken.balanceOf(thisAddress) >= amount,
-            "Insufficient USDC balance"
-        );
-        
-        require(
-            paymentToken.transfer(owner(), amount),
-            "USDC transfer failed"
-        );
-        
-        emit EmergencyWithdraw(owner(), amount);
+        withdrawPaymentToken(address(usdc), amount);
     }
     
     /**
@@ -365,9 +475,8 @@ contract TokenPresale is ITokenPresale, Ownable2Step, ReentrancyGuard, Pausable 
      */
     function emergencyWithdrawTokens(uint256 amount) external override onlyOwner {
         require(amount != 0, "Amount must be greater than zero");
-        address thisAddress = address(this);
         require(
-            token.balanceOf(thisAddress) >= amount,
+            token.balanceOf(address(this)) >= amount,
             "Insufficient token balance"
         );
         
@@ -390,6 +499,32 @@ contract TokenPresale is ITokenPresale, Ownable2Step, ReentrancyGuard, Pausable 
             token.transferFrom(msg.sender, address(this), amount),
             "Token transfer failed"
         );
+        
+        emit TokensAddedToPresale(amount);
+    }
+    
+    /**
+     * @dev Admin function to add a new payment token
+     * @param paymentToken Address of new payment token
+     */
+    function addPaymentToken(address paymentToken) external onlyOwner {
+        require(paymentToken != address(0), "Payment token address cannot be zero");
+        require(!acceptedPayments[paymentToken], "Payment token already accepted");
+        
+        acceptedPayments[paymentToken] = true;
+        emit PaymentTokenAdded(paymentToken);
+    }
+    
+    /**
+     * @dev Admin function to remove a payment token
+     * @param paymentToken Address of payment token to remove
+     */
+    function removePaymentToken(address paymentToken) external onlyOwner {
+        require(acceptedPayments[paymentToken], "Payment token not accepted");
+        require(paymentToken != address(usdc) && paymentToken != address(usdt), "Cannot remove core payment tokens");
+        
+        acceptedPayments[paymentToken] = false;
+        emit PaymentTokenRemoved(paymentToken);
     }
     
     /**
@@ -414,9 +549,25 @@ contract TokenPresale is ITokenPresale, Ownable2Step, ReentrancyGuard, Pausable 
     }
     
     /**
-     * @dev Returns the current USDC balance of the contract
+     * @dev Returns the current payment token balance of the contract
+     * @param paymentToken Address of payment token
+     */
+    function getContractPaymentBalance(address paymentToken) external view returns (uint256) {
+        return IERC20(paymentToken).balanceOf(address(this));
+    }
+    
+    /**
+     * @dev Returns the current USDC balance of the contract (backward compatibility)
      */
     function getContractUsdcBalance() external view returns (uint256) {
-        return paymentToken.balanceOf(address(this));
+        return usdc.balanceOf(address(this));
+    }
+    
+    /**
+     * @dev Returns whether a payment token is accepted
+     * @param paymentToken Address of payment token
+     */
+    function isPaymentTokenAccepted(address paymentToken) external view returns (bool) {
+        return acceptedPayments[paymentToken];
     }
 } 

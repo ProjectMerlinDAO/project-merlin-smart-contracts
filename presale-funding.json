@@ -1,0 +1,12 @@
+{
+  "network": "arbitrumSepolia",
+  "mrlToken": "0x9ee7a29264e631fcE96f5E68A50CB5Aa2a1dFb15",
+  "tokenPresale": "0x7A453e4d7C48A22aBf68625757BC3551b10B51b5",
+  "tokensTransferred": "1000000000000000000000000",
+  "presaleContractBalance": "1000000000000000000000000",
+  "deployerBalance": "9000000000000000000000000",
+  "totalTokensForSale": "1000000000000000000000000",
+  "transactionHash": "0xb69f22b17a3ffccffe44ddde1de4ed1da031098e62f32cf6a0290cf345a5bd7c",
+  "fundedAt": "2025-06-21T22:14:48.423Z",
+  "isReadyForSale": true
+}

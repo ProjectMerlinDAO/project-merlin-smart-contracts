@@ -1,0 +1,54 @@
+{
+  "network": "Arbitrum Sepolia",
+  "chainId": 421614,
+  "contracts": {
+    "TOKEN_PRESALE": "0x7A453e4d7C48A22aBf68625757BC3551b10B51b5",
+    "MRL_TOKEN": "0x9ee7a29264e631fcE96f5E68A50CB5Aa2a1dFb15",
+    "USDC_TOKEN": "0x1A187060EF0fE163E1d9f820131a2Af983982Ac4",
+    "USDT_TOKEN": "0x9E2718A1f225baF94b7132993401bE959ce03640"
+  },
+  "testAccounts": [
+    {
+      "index": 1,
+      "address": "0x5474Ebc6f9FA8A598203d7abe2893E2CbCC942A7",
+      "privateKey": "0xe7f52f15730d26c7ee922be096f1ec086904242a8785e4640f35229d9e131cd6",
+      "mnemonic": "outdoor goat pistol sphere option sign silly spy hawk addict square crack"
+    },
+    {
+      "index": 2,
+      "address": "0x93573d1DAa58f892EDE7F12324607881E1673e05",
+      "privateKey": "0xec2b5919456793dde86430ee64f7ef84412ad9a2927944cf606da3e6ce9aa516",
+      "mnemonic": "worry edit exercise breeze observe undo spin story blast evolve situate jar"
+    },
+    {
+      "index": 3,
+      "address": "0xf80629Eef6FD3208b72E8b26504Ff64eB53db6d2",
+      "privateKey": "0x657e287a5ee452d66c2bab7a1283639fd7a92d10f2b60792c4e941400b35b41c",
+      "mnemonic": "income finish special laugh angry old welcome live nasty damage square impose"
+    },
+    {
+      "index": 4,
+      "address": "0x03dBA63f6E20261707d393f9EBF2Df41826A26b8",
+      "privateKey": "0x6e3a2593983de546447ebe326d3676083baec624bf5755c63a7c4a9471d640ad",
+      "mnemonic": "burden door oak monster chase game weapon leopard common dance ask flag"
+    },
+    {
+      "index": 5,
+      "address": "0x0772fC5bb6B270a7F5fc78bf610034e66Dae38f4",
+      "privateKey": "0x6303edeab69e3c7cdd7a5464536ebbfcafd2664dcbbae2bf8485f7079bd1c846",
+      "mnemonic": "gate tongue achieve hover february chapter stumble help nominee million coconut sort"
+    }
+  ],
+  "instructions": [
+    "1. Import private key into MetaMask",
+    "2. Switch to Arbitrum Sepolia network",
+    "3. Get test ETH from faucet",
+    "4. Run funding script to get test tokens",
+    "5. Test frontend purchase functionality"
+  ],
+  "faucets": [
+    "https://faucet.quicknode.com/arbitrum/sepolia",
+    "https://www.alchemy.com/faucets/arbitrum-sepolia"
+  ],
+  "generatedAt": "2025-06-21T22:33:54.865Z"
+}

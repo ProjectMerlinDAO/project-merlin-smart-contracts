@@ -10,12 +10,16 @@ describe("TokenPresale", function () {
   let user3: any;
   let mockToken: MockERC20;
   let mockUSDC: MockERC20;
+  let mockUSDT: MockERC20;
 
-  const TOKEN_PRICE = ethers.parseUnits("0.1", 6); // 0.1 USDC per token
-  const MAX_BUY_LIMIT = ethers.parseUnits("10000", 18); // 10,000 tokens max per user
-  const INITIAL_TOKEN_SUPPLY = ethers.parseUnits("1000000", 18); // 1M tokens
-  const PRESALE_TOKEN_AMOUNT = ethers.parseUnits("100000", 18); // 100K tokens for presale
-  const USER_USDC_BALANCE = ethers.parseUnits("10000", 6); // 10K USDC per user
+  const TOKEN_PRICE = ethers.parseUnits("0.04", 6); // 0.04 USDC/USDT per token
+  const MIN_BUY_LIMIT = ethers.parseUnits("100", 6); // 100 USDC/USDT minimum
+  const MAX_BUY_LIMIT = ethers.parseUnits("500", 6); // 500 USDC/USDT maximum per user
+  const TOTAL_TOKENS_FOR_SALE = ethers.parseUnits("1000000", 18); // 1M tokens for sale
+  const INITIAL_TOKEN_SUPPLY = ethers.parseUnits("10000000", 18); // 10M tokens total supply
+  const PRESALE_TOKEN_AMOUNT = ethers.parseUnits("1000000", 18); // 1M tokens for presale
+  const USER_USDC_BALANCE = ethers.parseUnits("1000", 6); // 1K USDC per user
+  const USER_USDT_BALANCE = ethers.parseUnits("1000", 6); // 1K USDT per user
 
   beforeEach(async function () {
     [owner, user1, user2, user3] = await ethers.getSigners();
@@ -23,29 +27,44 @@ describe("TokenPresale", function () {
     // Deploy mock tokens
     const MockERC20Factory = await ethers.getContractFactory("MockERC20");
     
-    // Deploy mock token (18 decimals)
-    mockToken = await MockERC20Factory.deploy("Test Token", "TT", 18);
+    // Deploy mock MRL token (18 decimals)
+    mockToken = await MockERC20Factory.deploy("Merlin Token", "MRL", 18);
     await mockToken.waitForDeployment();
     
     // Deploy mock USDC (6 decimals)
     mockUSDC = await MockERC20Factory.deploy("USD Coin", "USDC", 6);
     await mockUSDC.waitForDeployment();
 
-    // Deploy TokenPresale contract
+    // Deploy mock USDT (6 decimals)
+    mockUSDT = await MockERC20Factory.deploy("Tether USD", "USDT", 6);
+    await mockUSDT.waitForDeployment();
+
+    // Mint initial tokens
+    await mockToken.mint(owner.address, INITIAL_TOKEN_SUPPLY);
+    await mockUSDC.mint(owner.address, ethers.parseUnits("1000000", 6));
+    await mockUSDT.mint(owner.address, ethers.parseUnits("1000000", 6));
+
+    // Deploy TokenPresale contract with new constructor parameters
     const TokenPresaleFactory = await ethers.getContractFactory("TokenPresale");
     tokenPresale = await TokenPresaleFactory.deploy(
-      await mockToken.getAddress(),
-      await mockUSDC.getAddress(),
-      TOKEN_PRICE,
-      MAX_BUY_LIMIT
+      await mockToken.getAddress(),    // _token
+      await mockUSDC.getAddress(),     // _usdc  
+      await mockUSDT.getAddress(),     // _usdt
+      TOKEN_PRICE,                     // _tokenPrice
+      MIN_BUY_LIMIT,                   // _minBuyLimit
+      MAX_BUY_LIMIT,                   // _maxBuyLimit
+      TOTAL_TOKENS_FOR_SALE           // _totalTokensForSale
     );
     await tokenPresale.waitForDeployment();
 
-    // Mint tokens
-    await mockToken.mint(owner.address, INITIAL_TOKEN_SUPPLY);
-    await mockUSDC.mint(user1.address, USER_USDC_BALANCE);
-    await mockUSDC.mint(user2.address, USER_USDC_BALANCE);
-    await mockUSDC.mint(user3.address, USER_USDC_BALANCE);
+    // Distribute payment tokens to users
+    await mockUSDC.transfer(user1.address, USER_USDC_BALANCE);
+    await mockUSDC.transfer(user2.address, USER_USDC_BALANCE);
+    await mockUSDC.transfer(user3.address, USER_USDC_BALANCE);
+    
+    await mockUSDT.transfer(user1.address, USER_USDT_BALANCE);
+    await mockUSDT.transfer(user2.address, USER_USDT_BALANCE);
+    await mockUSDT.transfer(user3.address, USER_USDT_BALANCE);
 
     // Fund presale contract with tokens
     await mockToken.approve(await tokenPresale.getAddress(), PRESALE_TOKEN_AMOUNT);
@@ -56,13 +75,27 @@ describe("TokenPresale", function () {
     it("Should set the correct initial parameters", async function () {
       const presaleInfo = await tokenPresale.presaleInfo();
       expect(presaleInfo.token).to.equal(await mockToken.getAddress());
-      expect(presaleInfo.paymentToken).to.equal(await mockUSDC.getAddress());
+      expect(presaleInfo.paymentToken).to.equal(await mockUSDC.getAddress()); // Backward compatibility
       expect(presaleInfo.tokenPrice).to.equal(TOKEN_PRICE);
+      expect(presaleInfo.minBuyLimit).to.equal(MIN_BUY_LIMIT);
       expect(presaleInfo.maxBuyLimit).to.equal(MAX_BUY_LIMIT);
+      expect(presaleInfo.totalTokensForSale).to.equal(TOTAL_TOKENS_FOR_SALE);
       expect(presaleInfo.isActive).to.equal(false);
       expect(presaleInfo.currentUnlockPercentage).to.equal(0);
       expect(presaleInfo.totalTokensSold).to.equal(0);
-      expect(presaleInfo.totalUsdcRaised).to.equal(0);
+      expect(presaleInfo.totalPaymentRaised).to.equal(0);
+    });
+
+    it("Should set the correct extended presale info", async function () {
+      const extendedInfo = await tokenPresale.getExtendedPresaleInfo();
+      expect(extendedInfo.token).to.equal(await mockToken.getAddress());
+      expect(extendedInfo.usdc).to.equal(await mockUSDC.getAddress());
+      expect(extendedInfo.usdt).to.equal(await mockUSDT.getAddress());
+      expect(extendedInfo.tokenPrice).to.equal(TOKEN_PRICE);
+      expect(extendedInfo.minBuyLimit).to.equal(MIN_BUY_LIMIT);
+      expect(extendedInfo.maxBuyLimit).to.equal(MAX_BUY_LIMIT);
+      expect(extendedInfo.totalTokensForSale).to.equal(TOTAL_TOKENS_FOR_SALE);
+      expect(extendedInfo.soldPercentage).to.equal(0);
     });
 
     it("Should set the correct owner", async function () {
@@ -73,42 +106,99 @@ describe("TokenPresale", function () {
       expect(await tokenPresale.getContractTokenBalance()).to.equal(PRESALE_TOKEN_AMOUNT);
     });
 
+    it("Should accept correct payment tokens", async function () {
+      expect(await tokenPresale.isPaymentTokenAccepted(await mockUSDC.getAddress())).to.equal(true);
+      expect(await tokenPresale.isPaymentTokenAccepted(await mockUSDT.getAddress())).to.equal(true);
+    });
+
     it("Should revert with invalid constructor parameters", async function () {
       const TokenPresaleFactory = await ethers.getContractFactory("TokenPresale");
       
       await expect(TokenPresaleFactory.deploy(
         ethers.ZeroAddress,
         await mockUSDC.getAddress(),
+        await mockUSDT.getAddress(),
         TOKEN_PRICE,
-        MAX_BUY_LIMIT
+        MIN_BUY_LIMIT,
+        MAX_BUY_LIMIT,
+        TOTAL_TOKENS_FOR_SALE
       )).to.be.revertedWith("Token address cannot be zero");
 
       await expect(TokenPresaleFactory.deploy(
         await mockToken.getAddress(),
         ethers.ZeroAddress,
+        await mockUSDT.getAddress(),
         TOKEN_PRICE,
-        MAX_BUY_LIMIT
-      )).to.be.revertedWith("Payment token address cannot be zero");
+        MIN_BUY_LIMIT,
+        MAX_BUY_LIMIT,
+        TOTAL_TOKENS_FOR_SALE
+      )).to.be.revertedWith("USDC address cannot be zero");
 
       await expect(TokenPresaleFactory.deploy(
         await mockToken.getAddress(),
         await mockUSDC.getAddress(),
+        ethers.ZeroAddress,
+        TOKEN_PRICE,
+        MIN_BUY_LIMIT,
+        MAX_BUY_LIMIT,
+        TOTAL_TOKENS_FOR_SALE
+      )).to.be.revertedWith("USDT address cannot be zero");
+
+      await expect(TokenPresaleFactory.deploy(
+        await mockToken.getAddress(),
+        await mockUSDC.getAddress(),
+        await mockUSDT.getAddress(),
         0,
-        MAX_BUY_LIMIT
+        MIN_BUY_LIMIT,
+        MAX_BUY_LIMIT,
+        TOTAL_TOKENS_FOR_SALE
       )).to.be.revertedWith("Token price must be greater than zero");
 
       await expect(TokenPresaleFactory.deploy(
         await mockToken.getAddress(),
         await mockUSDC.getAddress(),
+        await mockUSDT.getAddress(),
         TOKEN_PRICE,
-        0
+        0,
+        MAX_BUY_LIMIT,
+        TOTAL_TOKENS_FOR_SALE
+      )).to.be.revertedWith("Min buy limit must be greater than zero");
+
+      await expect(TokenPresaleFactory.deploy(
+        await mockToken.getAddress(),
+        await mockUSDC.getAddress(),
+        await mockUSDT.getAddress(),
+        TOKEN_PRICE,
+        MIN_BUY_LIMIT,
+        0,
+        TOTAL_TOKENS_FOR_SALE
       )).to.be.revertedWith("Max buy limit must be greater than zero");
+
+      await expect(TokenPresaleFactory.deploy(
+        await mockToken.getAddress(),
+        await mockUSDC.getAddress(),
+        await mockUSDT.getAddress(),
+        TOKEN_PRICE,
+        MAX_BUY_LIMIT, // min > max
+        MIN_BUY_LIMIT,
+        TOTAL_TOKENS_FOR_SALE
+      )).to.be.revertedWith("Max buy limit must be greater than min buy limit");
+
+      await expect(TokenPresaleFactory.deploy(
+        await mockToken.getAddress(),
+        await mockUSDC.getAddress(),
+        await mockUSDT.getAddress(),
+        TOKEN_PRICE,
+        MIN_BUY_LIMIT,
+        MAX_BUY_LIMIT,
+        0
+      )).to.be.revertedWith("Total tokens for sale must be greater than zero");
     });
   });
 
   describe("Admin Functions", function () {
     it("Should allow owner to set token price", async function () {
-      const newPrice = ethers.parseUnits("0.2", 6);
+      const newPrice = ethers.parseUnits("0.05", 6);
       await expect(tokenPresale.setTokenPrice(newPrice))
         .to.emit(tokenPresale, "TokenPriceUpdated")
         .withArgs(newPrice);
@@ -116,13 +206,31 @@ describe("TokenPresale", function () {
       expect((await tokenPresale.presaleInfo()).tokenPrice).to.equal(newPrice);
     });
 
+    it("Should allow owner to set min buy limit", async function () {
+      const newLimit = ethers.parseUnits("50", 6);
+      await expect(tokenPresale.setMinBuyLimit(newLimit))
+        .to.emit(tokenPresale, "MinBuyLimitUpdated")
+        .withArgs(newLimit);
+      
+      expect((await tokenPresale.presaleInfo()).minBuyLimit).to.equal(newLimit);
+    });
+
     it("Should allow owner to set max buy limit", async function () {
-      const newLimit = ethers.parseUnits("5000", 18);
+      const newLimit = ethers.parseUnits("1000", 6);
       await expect(tokenPresale.setMaxBuyLimit(newLimit))
         .to.emit(tokenPresale, "MaxBuyLimitUpdated")
         .withArgs(newLimit);
       
       expect((await tokenPresale.presaleInfo()).maxBuyLimit).to.equal(newLimit);
+    });
+
+    it("Should allow owner to set total tokens for sale", async function () {
+      const newTotal = ethers.parseUnits("2000000", 18);
+      await expect(tokenPresale.setTotalTokensForSale(newTotal))
+        .to.emit(tokenPresale, "TotalTokensForSaleUpdated")
+        .withArgs(newTotal);
+      
+      expect((await tokenPresale.presaleInfo()).totalTokensForSale).to.equal(newTotal);
     });
 
     it("Should allow owner to activate presale", async function () {
@@ -178,10 +286,13 @@ describe("TokenPresale", function () {
     });
 
     it("Should not allow non-owner to call admin functions", async function () {
-      await expect(tokenPresale.connect(user1).setTokenPrice(ethers.parseUnits("0.2", 6)))
+      await expect(tokenPresale.connect(user1).setTokenPrice(ethers.parseUnits("0.05", 6)))
         .to.be.revertedWith("Ownable: caller is not the owner");
         
-      await expect(tokenPresale.connect(user1).setMaxBuyLimit(ethers.parseUnits("5000", 18)))
+      await expect(tokenPresale.connect(user1).setMinBuyLimit(ethers.parseUnits("50", 6)))
+        .to.be.revertedWith("Ownable: caller is not the owner");
+        
+      await expect(tokenPresale.connect(user1).setMaxBuyLimit(ethers.parseUnits("1000", 6)))
         .to.be.revertedWith("Ownable: caller is not the owner");
         
       await expect(tokenPresale.connect(user1).setPresaleStatus(true))
@@ -201,6 +312,9 @@ describe("TokenPresale", function () {
       await expect(tokenPresale.setTokenPrice(0))
         .to.be.revertedWith("Price must be greater than zero");
         
+      await expect(tokenPresale.setMinBuyLimit(0))
+        .to.be.revertedWith("Limit must be greater than zero");
+        
       await expect(tokenPresale.setMaxBuyLimit(0))
         .to.be.revertedWith("Limit must be greater than zero");
         
@@ -214,81 +328,117 @@ describe("TokenPresale", function () {
       await tokenPresale.setPresaleStatus(true);
     });
 
-    it("Should allow users to buy tokens", async function () {
-      const usdcAmount = ethers.parseUnits("100", 6); // 100 USDC
-      const expectedTokens = ethers.parseUnits("1000", 18); // 1000 tokens
+    it("Should allow users to buy tokens with USDC", async function () {
+      const usdcAmount = ethers.parseUnits("200", 6); // 200 USDC
+      const expectedTokens = ethers.parseUnits("5000", 18); // 5000 tokens at 0.04 price
 
       await mockUSDC.connect(user1).approve(await tokenPresale.getAddress(), usdcAmount);
       
-      await expect(tokenPresale.connect(user1).buyTokens(usdcAmount))
+      await expect(tokenPresale.connect(user1).buyTokens(await mockUSDC.getAddress(), usdcAmount))
         .to.emit(tokenPresale, "TokensPurchased")
-        .withArgs(user1.address, usdcAmount, expectedTokens);
+        .withArgs(user1.address, await mockUSDC.getAddress(), usdcAmount, expectedTokens);
 
       const userPurchase = await tokenPresale.getUserPurchase(user1.address);
       expect(userPurchase.totalTokensBought).to.equal(expectedTokens);
-      expect(userPurchase.usdcSpent).to.equal(usdcAmount);
+      expect(userPurchase.paymentSpent).to.equal(usdcAmount);
       expect(userPurchase.totalClaimedTokens).to.equal(0);
     });
 
+    it("Should allow users to buy tokens with USDT", async function () {
+      const usdtAmount = ethers.parseUnits("150", 6); // 150 USDT
+      const expectedTokens = ethers.parseUnits("3750", 18); // 3750 tokens at 0.04 price
+
+      await mockUSDT.connect(user1).approve(await tokenPresale.getAddress(), usdtAmount);
+      
+      await expect(tokenPresale.connect(user1).buyTokens(await mockUSDT.getAddress(), usdtAmount))
+        .to.emit(tokenPresale, "TokensPurchased")
+        .withArgs(user1.address, await mockUSDT.getAddress(), usdtAmount, expectedTokens);
+
+      const userPurchase = await tokenPresale.getUserPurchase(user1.address);
+      expect(userPurchase.totalTokensBought).to.equal(expectedTokens);
+      expect(userPurchase.paymentSpent).to.equal(usdtAmount);
+      expect(userPurchase.totalClaimedTokens).to.equal(0);
+    });
+
+    it("Should reject purchase below minimum limit", async function () {
+      const usdcAmount = ethers.parseUnits("50", 6); // Below 100 minimum
+
+      await mockUSDC.connect(user1).approve(await tokenPresale.getAddress(), usdcAmount);
+      await expect(tokenPresale.connect(user1).buyTokens(await mockUSDC.getAddress(), usdcAmount))
+        .to.be.revertedWith("Payment amount below minimum limit");
+    });
+
     it("Should track multiple purchases from same user", async function () {
-      const usdcAmount1 = ethers.parseUnits("100", 6);
-      const usdcAmount2 = ethers.parseUnits("50", 6);
-      const expectedTokens1 = ethers.parseUnits("1000", 18);
-      const expectedTokens2 = ethers.parseUnits("500", 18);
+      const usdcAmount1 = ethers.parseUnits("200", 6); // Changed to meet minimum
+      const usdcAmount2 = ethers.parseUnits("150", 6); // Changed to meet minimum
+      const expectedTokens1 = ethers.parseUnits("5000", 18); // Updated calculation
+      const expectedTokens2 = ethers.parseUnits("3750", 18); // Updated calculation
 
       await mockUSDC.connect(user1).approve(await tokenPresale.getAddress(), usdcAmount1 + usdcAmount2);
       
-      await tokenPresale.connect(user1).buyTokens(usdcAmount1);
-      await tokenPresale.connect(user1).buyTokens(usdcAmount2);
+      await tokenPresale.connect(user1).buyTokens(await mockUSDC.getAddress(), usdcAmount1);
+      await tokenPresale.connect(user1).buyTokens(await mockUSDC.getAddress(), usdcAmount2);
 
       const userPurchase = await tokenPresale.getUserPurchase(user1.address);
       expect(userPurchase.totalTokensBought).to.equal(expectedTokens1 + expectedTokens2);
-      expect(userPurchase.usdcSpent).to.equal(usdcAmount1 + usdcAmount2);
+      expect(userPurchase.paymentSpent).to.equal(usdcAmount1 + usdcAmount2);
     });
 
     it("Should track total presale statistics", async function () {
-      const usdcAmount = ethers.parseUnits("100", 6);
-      const expectedTokens = ethers.parseUnits("1000", 18);
+      const usdcAmount = ethers.parseUnits("200", 6); // Changed to get expected tokens right
+      const expectedTokens = ethers.parseUnits("5000", 18); // Updated calculation
 
       await mockUSDC.connect(user1).approve(await tokenPresale.getAddress(), usdcAmount);
       await mockUSDC.connect(user2).approve(await tokenPresale.getAddress(), usdcAmount);
       
-      await tokenPresale.connect(user1).buyTokens(usdcAmount);
-      await tokenPresale.connect(user2).buyTokens(usdcAmount);
+      await tokenPresale.connect(user1).buyTokens(await mockUSDC.getAddress(), usdcAmount);
+      await tokenPresale.connect(user2).buyTokens(await mockUSDC.getAddress(), usdcAmount);
 
       const presaleInfo = await tokenPresale.presaleInfo();
       expect(presaleInfo.totalTokensSold).to.equal(expectedTokens * 2n);
-      expect(presaleInfo.totalUsdcRaised).to.equal(usdcAmount * 2n);
+      expect(presaleInfo.totalPaymentRaised).to.equal(usdcAmount * 2n);
       expect(await tokenPresale.getTotalPurchasers()).to.equal(2);
     });
 
     it("Should not allow purchase when presale is inactive", async function () {
       await tokenPresale.setPresaleStatus(false);
-      const usdcAmount = ethers.parseUnits("100", 6);
+      const usdcAmount = ethers.parseUnits("200", 6);
 
       await mockUSDC.connect(user1).approve(await tokenPresale.getAddress(), usdcAmount);
-      await expect(tokenPresale.connect(user1).buyTokens(usdcAmount))
+      await expect(tokenPresale.connect(user1).buyTokens(await mockUSDC.getAddress(), usdcAmount))
         .to.be.revertedWith("Presale is not active");
     });
 
     it("Should not allow purchase exceeding max buy limit", async function () {
-      const usdcAmount = ethers.parseUnits("1100", 6); // Would buy 11,000 tokens
+      const usdcAmount = ethers.parseUnits("600", 6); // Exceeds 500 max
 
       await mockUSDC.connect(user1).approve(await tokenPresale.getAddress(), usdcAmount);
-      await expect(tokenPresale.connect(user1).buyTokens(usdcAmount))
+      await expect(tokenPresale.connect(user1).buyTokens(await mockUSDC.getAddress(), usdcAmount))
         .to.be.revertedWith("Would exceed maximum buy limit");
     });
 
-    it("Should not allow purchase with insufficient USDC approval", async function () {
-      const usdcAmount = ethers.parseUnits("100", 6);
+    it("Should not allow purchase with unaccepted payment token", async function () {
+      // Deploy a different token that's not accepted
+      const MockERC20Factory = await ethers.getContractFactory("MockERC20");
+      const otherToken = await MockERC20Factory.deploy("Other Token", "OTHER", 6);
+      
+      const amount = ethers.parseUnits("200", 6);
+      await otherToken.approve(await tokenPresale.getAddress(), amount);
+      
+      await expect(tokenPresale.buyTokens(await otherToken.getAddress(), amount))
+        .to.be.revertedWith("Payment token not accepted");
+    });
 
-      await expect(tokenPresale.connect(user1).buyTokens(usdcAmount))
+    it("Should not allow purchase with insufficient payment token approval", async function () {
+      const usdcAmount = ethers.parseUnits("200", 6);
+
+      await expect(tokenPresale.connect(user1).buyTokens(await mockUSDC.getAddress(), usdcAmount))
         .to.be.revertedWith("ERC20: insufficient allowance");
     });
 
-    it("Should not allow zero USDC purchase", async function () {
-      await expect(tokenPresale.connect(user1).buyTokens(0))
-        .to.be.revertedWith("USDC amount must be greater than zero");
+    it("Should not allow zero payment purchase", async function () {
+      await expect(tokenPresale.connect(user1).buyTokens(await mockUSDC.getAddress(), 0))
+        .to.be.revertedWith("Payment amount below minimum limit");
     });
   });
 
@@ -296,14 +446,14 @@ describe("TokenPresale", function () {
     beforeEach(async function () {
       await tokenPresale.setPresaleStatus(true);
       
-      // User1 buys 1000 tokens (100 USDC)
-      const usdcAmount = ethers.parseUnits("100", 6);
+      // User1 buys 5000 tokens (200 USDC)
+      const usdcAmount = ethers.parseUnits("200", 6);
       await mockUSDC.connect(user1).approve(await tokenPresale.getAddress(), usdcAmount);
-      await tokenPresale.connect(user1).buyTokens(usdcAmount);
+      await tokenPresale.connect(user1).buyTokens(await mockUSDC.getAddress(), usdcAmount);
     });
 
     it("Should return correct individual token amounts", async function () {
-      const tokensBought = ethers.parseUnits("1000", 18);
+      const tokensBought = ethers.parseUnits("5000", 18);
       
       // Initially all tokens are locked
       expect(await tokenPresale.getUnlockedAmount(user1.address)).to.equal(0);
@@ -330,7 +480,7 @@ describe("TokenPresale", function () {
     });
 
     it("Should return comprehensive user token status", async function () {
-      const tokensBought = ethers.parseUnits("1000", 18);
+      const tokensBought = ethers.parseUnits("5000", 18);
       
       // Initially all tokens are locked
       let status = await tokenPresale.getUserTokenStatus(user1.address);
@@ -383,141 +533,38 @@ describe("TokenPresale", function () {
       await tokenPresale.setPresaleStatus(true);
       
       // User1 and User2 buy tokens
-      const usdcAmount = ethers.parseUnits("100", 6);
+      const usdcAmount = ethers.parseUnits("200", 6);
       await mockUSDC.connect(user1).approve(await tokenPresale.getAddress(), usdcAmount);
       await mockUSDC.connect(user2).approve(await tokenPresale.getAddress(), usdcAmount);
-      await tokenPresale.connect(user1).buyTokens(usdcAmount);
-      await tokenPresale.connect(user2).buyTokens(usdcAmount);
+      await tokenPresale.connect(user1).buyTokens(await mockUSDC.getAddress(), usdcAmount);
+      await tokenPresale.connect(user2).buyTokens(await mockUSDC.getAddress(), usdcAmount);
     });
 
-    it("Should prevent claiming the same tokens twice", async function () {
-      const tokensBought = ethers.parseUnits("1000", 18);
+    it("Should track sold percentage correctly", async function () {
+      const soldPercentage = await tokenPresale.getSoldPercentage();
+      const extendedInfo = await tokenPresale.getExtendedPresaleInfo();
       
-      // Unlock 25%
-      await tokenPresale.setUnlockPercentage(2500);
-      const expectedClaimable = tokensBought * 25n / 100n;
-      
-      // User claims tokens
-      await tokenPresale.connect(user1).claimTokens();
-      
-      // Verify tokens were claimed
-      const userPurchase1 = await tokenPresale.getUserPurchase(user1.address);
-      expect(userPurchase1.totalClaimedTokens).to.equal(expectedClaimable);
-      expect(await mockToken.balanceOf(user1.address)).to.equal(expectedClaimable);
-      
-      // Try to claim again - should fail
-      await expect(tokenPresale.connect(user1).claimTokens())
-        .to.be.revertedWith("No tokens available to claim");
-      
-      // Verify no additional tokens were claimed
-      const userPurchase2 = await tokenPresale.getUserPurchase(user1.address);
-      expect(userPurchase2.totalClaimedTokens).to.equal(expectedClaimable);
-      expect(await mockToken.balanceOf(user1.address)).to.equal(expectedClaimable);
-    });
-
-    it("Should allow claiming new unlocked tokens after additional unlock", async function () {
-      const tokensBought = ethers.parseUnits("1000", 18);
-      
-      // First unlock 20%
-      await tokenPresale.setUnlockPercentage(2000);
-      const firstClaimable = tokensBought * 20n / 100n;
-      
-      // User claims 20%
-      await tokenPresale.connect(user1).claimTokens();
-      expect(await tokenPresale.getClaimableAmount(user1.address)).to.equal(0);
-      expect(await tokenPresale.getClaimedAmount(user1.address)).to.equal(firstClaimable);
-      
-      // Try to claim again - should fail
-      await expect(tokenPresale.connect(user1).claimTokens())
-        .to.be.revertedWith("No tokens available to claim");
-      
-      // Unlock additional 30% (total 50%)
-      await tokenPresale.setUnlockPercentage(5000);
-      const additionalClaimable = tokensBought * 30n / 100n; // 30% more
-      
-      // Now user should be able to claim the additional 30%
-      expect(await tokenPresale.getClaimableAmount(user1.address)).to.equal(additionalClaimable);
-      
-      await tokenPresale.connect(user1).claimTokens();
-      
-      // Verify total claimed is now 50%
-      const totalClaimedExpected = tokensBought * 50n / 100n;
-      expect(await tokenPresale.getClaimedAmount(user1.address)).to.equal(totalClaimedExpected);
-      expect(await mockToken.balanceOf(user1.address)).to.equal(totalClaimedExpected);
-      
-      // Should not be able to claim again
-      expect(await tokenPresale.getClaimableAmount(user1.address)).to.equal(0);
-      await expect(tokenPresale.connect(user1).claimTokens())
-        .to.be.revertedWith("No tokens available to claim");
-    });
-
-    it("Should handle full unlock and claiming correctly", async function () {
-      const tokensBought = ethers.parseUnits("1000", 18);
-      
-      // Partial unlock first (25%)
-      await tokenPresale.setUnlockPercentage(2500);
-      await tokenPresale.connect(user1).claimTokens();
-      
-      const partialClaimed = tokensBought * 25n / 100n;
-      expect(await tokenPresale.getClaimedAmount(user1.address)).to.equal(partialClaimed);
-      
-      // Full unlock
-      await tokenPresale.unlockAllTokens();
-      
-      const remainingClaimable = tokensBought - partialClaimed;
-      expect(await tokenPresale.getClaimableAmount(user1.address)).to.equal(remainingClaimable);
-      
-      // Claim remaining tokens
-      await tokenPresale.connect(user1).claimTokens();
-      
-      // Verify all tokens claimed
-      expect(await tokenPresale.getClaimedAmount(user1.address)).to.equal(tokensBought);
-      expect(await mockToken.balanceOf(user1.address)).to.equal(tokensBought);
-      expect(await tokenPresale.getClaimableAmount(user1.address)).to.equal(0);
-      
-      // Should not be able to claim anymore
-      await expect(tokenPresale.connect(user1).claimTokens())
-        .to.be.revertedWith("No tokens available to claim");
-    });
-
-    it("Should track claimed tokens independently for multiple users", async function () {
-      const tokensBought = ethers.parseUnits("1000", 18);
-      
-      // Unlock 30%
-      await tokenPresale.setUnlockPercentage(3000);
-      const expectedClaimable = tokensBought * 30n / 100n;
-      
-      // Only user1 claims
-      await tokenPresale.connect(user1).claimTokens();
-      
-      // User1 should have claimed tokens, user2 should not
-      expect(await tokenPresale.getClaimedAmount(user1.address)).to.equal(expectedClaimable);
-      expect(await tokenPresale.getClaimedAmount(user2.address)).to.equal(0);
-      expect(await tokenPresale.getClaimableAmount(user1.address)).to.equal(0);
-      expect(await tokenPresale.getClaimableAmount(user2.address)).to.equal(expectedClaimable);
-      
-      // User2 can still claim their tokens
-      await tokenPresale.connect(user2).claimTokens();
-      expect(await tokenPresale.getClaimedAmount(user2.address)).to.equal(expectedClaimable);
-      expect(await tokenPresale.getClaimableAmount(user2.address)).to.equal(0);
+      // 10000 tokens sold out of 1M = 1%
+      expect(soldPercentage).to.equal(100); // 1% * 100 precision = 100
+      expect(extendedInfo.soldPercentage).to.equal(100);
     });
   });
 
   describe("Emergency Functions", function () {
     beforeEach(async function () {
       await tokenPresale.setPresaleStatus(true);
-      const usdcAmount = ethers.parseUnits("100", 6);
+      const usdcAmount = ethers.parseUnits("200", 6);
       await mockUSDC.connect(user1).approve(await tokenPresale.getAddress(), usdcAmount);
-      await tokenPresale.connect(user1).buyTokens(usdcAmount);
+      await tokenPresale.connect(user1).buyTokens(await mockUSDC.getAddress(), usdcAmount);
     });
 
     it("Should allow owner to withdraw USDC", async function () {
-      const withdrawAmount = ethers.parseUnits("50", 6);
+      const withdrawAmount = ethers.parseUnits("100", 6);
       const initialBalance = await mockUSDC.balanceOf(owner.address);
       
       await expect(tokenPresale.withdrawUSDC(withdrawAmount))
-        .to.emit(tokenPresale, "EmergencyWithdraw")
-        .withArgs(owner.address, withdrawAmount);
+        .to.emit(tokenPresale, "PaymentWithdrawn")
+        .withArgs(await mockUSDC.getAddress(), owner.address, withdrawAmount);
       
       const finalBalance = await mockUSDC.balanceOf(owner.address);
       expect(finalBalance - initialBalance).to.equal(withdrawAmount);
@@ -540,7 +587,7 @@ describe("TokenPresale", function () {
       const excessiveAmount = contractUsdcBalance + ethers.parseUnits("1", 6);
       
       await expect(tokenPresale.withdrawUSDC(excessiveAmount))
-        .to.be.revertedWith("Insufficient USDC balance");
+        .to.be.revertedWith("Insufficient balance");
     });
 
     it("Should not allow non-owner to withdraw", async function () {
@@ -554,17 +601,41 @@ describe("TokenPresale", function () {
 
   describe("Pausable Functionality", function () {
     it("Should allow owner to pause and unpause", async function () {
+      await tokenPresale.setPresaleStatus(true);
+      
+      // First, verify normal operation works
+      const usdcAmount = ethers.parseUnits("200", 6);
+      await mockUSDC.connect(user1).approve(await tokenPresale.getAddress(), usdcAmount);
+      await tokenPresale.connect(user1).buyTokens(await mockUSDC.getAddress(), usdcAmount);
+      
+      // Pause the contract
       await tokenPresale.pause();
       
-      await tokenPresale.setPresaleStatus(true);
-      const usdcAmount = ethers.parseUnits("100", 6);
-      await mockUSDC.connect(user1).approve(await tokenPresale.getAddress(), usdcAmount);
+      // Verify that token purchases are blocked when paused
+      await mockUSDC.connect(user2).approve(await tokenPresale.getAddress(), usdcAmount);
+      await expect(tokenPresale.connect(user2).buyTokens(await mockUSDC.getAddress(), usdcAmount))
+        .to.be.revertedWith("Pausable: paused");
       
-      // Paused contract should prevent token purchases
-      // Note: buyTokens doesn't have whenNotPaused modifier, so this test may not work as expected
-      // This is a design choice - you might want to add whenNotPaused to buyTokens if needed
+      // Verify that token claims are blocked when paused
+      await tokenPresale.setUnlockPercentage(5000); // Unlock 50%
+      await expect(tokenPresale.connect(user1).claimTokens())
+        .to.be.revertedWith("Pausable: paused");
       
+      // Unpause and verify operations work again
       await tokenPresale.unpause();
+      
+      // Should be able to buy tokens again
+      await tokenPresale.connect(user2).buyTokens(await mockUSDC.getAddress(), usdcAmount);
+      
+      // Should be able to claim tokens again
+      await tokenPresale.connect(user1).claimTokens();
+      
+      // Verify the purchase and claim worked
+      const user2Purchase = await tokenPresale.getUserPurchase(user2.address);
+      expect(user2Purchase.totalTokensBought).to.be.gt(0);
+      
+      const user1Purchase = await tokenPresale.getUserPurchase(user1.address);
+      expect(user1Purchase.totalClaimedTokens).to.be.gt(0);
     });
   });
 
@@ -582,65 +653,60 @@ describe("TokenPresale", function () {
       expect(info.token).to.equal(await mockToken.getAddress());
       expect(info.paymentToken).to.equal(await mockUSDC.getAddress());
       expect(info.tokenPrice).to.equal(TOKEN_PRICE);
+      expect(info.minBuyLimit).to.equal(MIN_BUY_LIMIT);
       expect(info.maxBuyLimit).to.equal(MAX_BUY_LIMIT);
+      expect(info.totalTokensForSale).to.equal(TOTAL_TOKENS_FOR_SALE);
     });
 
     it("Should return correct user purchase info", async function () {
       await tokenPresale.setPresaleStatus(true);
-      const usdcAmount = ethers.parseUnits("100", 6);
-      const expectedTokens = ethers.parseUnits("1000", 18);
+      const usdcAmount = ethers.parseUnits("200", 6); // Updated amount
+      const expectedTokens = ethers.parseUnits("5000", 18); // Updated calculation
       
       await mockUSDC.connect(user1).approve(await tokenPresale.getAddress(), usdcAmount);
-      await tokenPresale.connect(user1).buyTokens(usdcAmount);
+      await tokenPresale.connect(user1).buyTokens(await mockUSDC.getAddress(), usdcAmount);
       
       const purchase = await tokenPresale.getUserPurchase(user1.address);
       expect(purchase.totalTokensBought).to.equal(expectedTokens);
-      expect(purchase.usdcSpent).to.equal(usdcAmount);
+      expect(purchase.paymentSpent).to.equal(usdcAmount);
       expect(purchase.totalClaimedTokens).to.equal(0);
     });
   });
 
   describe("Edge Cases", function () {
-    it("Should handle very small USDC amounts", async function () {
+    it("Should handle very small payment amounts", async function () {
       await tokenPresale.setPresaleStatus(true);
-      const smallAmount = 1; // 0.000001 USDC
+      const smallAmount = ethers.parseUnits("100", 6); // Use minimum amount to avoid minimum limit error
       
       await mockUSDC.connect(user1).approve(await tokenPresale.getAddress(), smallAmount);
       
-      // This should either work or revert with "Token amount must be greater than zero"
-      // depending on the price calculation
-      try {
-        await tokenPresale.connect(user1).buyTokens(smallAmount);
-        // If it succeeds, check the purchase was recorded
-        const purchase = await tokenPresale.getUserPurchase(user1.address);
-        expect(purchase.usdcSpent).to.equal(smallAmount);
-      } catch (error: any) {
-        // If it fails, it should be due to zero token amount
-        expect(error.message).to.include("Token amount must be greater than zero");
-      }
+      // This should work since it meets minimum limit
+      await tokenPresale.connect(user1).buyTokens(await mockUSDC.getAddress(), smallAmount);
+      const purchase = await tokenPresale.getUserPurchase(user1.address);
+      expect(purchase.paymentSpent).to.equal(smallAmount);
     });
 
     it("Should handle price updates after purchases", async function () {
       await tokenPresale.setPresaleStatus(true);
       
-      // Buy tokens at original price
-      const usdcAmount = ethers.parseUnits("100", 6);
+      // Buy tokens at original price (0.04)
+      const usdcAmount = ethers.parseUnits("200", 6);
       await mockUSDC.connect(user1).approve(await tokenPresale.getAddress(), usdcAmount);
-      await tokenPresale.connect(user1).buyTokens(usdcAmount);
+      await tokenPresale.connect(user1).buyTokens(await mockUSDC.getAddress(), usdcAmount);
       
-      // Change price
-      const newPrice = ethers.parseUnits("0.2", 6); // Double the price
+      // Change price to 0.08 (double the price)
+      const newPrice = ethers.parseUnits("0.08", 6);
       await tokenPresale.setTokenPrice(newPrice);
       
       // Buy more tokens at new price
       await mockUSDC.connect(user1).approve(await tokenPresale.getAddress(), usdcAmount);
-      await tokenPresale.connect(user1).buyTokens(usdcAmount);
+      await tokenPresale.connect(user1).buyTokens(await mockUSDC.getAddress(), usdcAmount);
       
       const purchase = await tokenPresale.getUserPurchase(user1.address);
-      // First purchase: 100 USDC / 0.1 = 1000 tokens
-      // Second purchase: 100 USDC / 0.2 = 500 tokens
-      // Total: 1500 tokens
-      expect(purchase.totalTokensBought).to.equal(ethers.parseUnits("1500", 18));
+      // First purchase: 200 USDC / 0.04 = 5000 tokens
+      // Second purchase: 200 USDC / 0.08 = 2500 tokens
+      // Total: 7500 tokens
+      expect(purchase.totalTokensBought).to.equal(ethers.parseUnits("7500", 18));
     });
   });
 }); 

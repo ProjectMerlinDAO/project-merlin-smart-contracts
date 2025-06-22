@@ -1,0 +1,12 @@
+{
+  "network": "arbitrum",
+  "tokenPresale": "0x7A453e4d7C48A22aBf68625757BC3551b10B51b5",
+  "mrlToken": "0x9ee7a29264e631fcE96f5E68A50CB5Aa2a1dFb15",
+  "usdc": "0x1A187060EF0fE163E1d9f820131a2Af983982Ac4",
+  "usdt": "0x9E2718A1f225baF94b7132993401bE959ce03640",
+  "tokenPrice": "40000",
+  "minBuyLimit": "100000000",
+  "maxBuyLimit": "500000000",
+  "totalTokensForSale": "1000000000000000000000000",
+  "deployedAt": "2025-06-21T22:12:41.482Z"
+}
