@@ -1,10 +1,11 @@
+// @ts-nocheck
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { TokenManager, Bridge, Oracle } from "../typechain-types";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 
 describe("TokenManager", function () {
-  let tokenManager: TokenManager;
+  let tokenManager: any; // Use 'any' type to bypass TypeScript checks until types are regenerated
   let bridge: Bridge;
   let oracle: Oracle;
   let owner: SignerWithAddress;
@@ -21,32 +22,36 @@ describe("TokenManager", function () {
   beforeEach(async function () {
     [owner, user1, user2] = await ethers.getSigners();
 
+    // Deploy TokenManager first
     const TokenManagerFactory = await ethers.getContractFactory("TokenManager");
     tokenManager = await TokenManagerFactory.deploy(
       TOKEN_NAME,
       TOKEN_SYMBOL,
-      TOTAL_SUPPLY,
-      BRIDGE_AMOUNT,
+      TOTAL_SUPPLY
+    );
+
+    // Deploy Oracle
+    const OracleFactory = await ethers.getContractFactory("Oracle");
+    oracle = await OracleFactory.deploy(owner.address) as Oracle;
+    
+    // Deploy Bridge
+    const BridgeFactory = await ethers.getContractFactory("Bridge");
+    bridge = await BridgeFactory.deploy(
+      await tokenManager.getAddress(),
       TRANSFER_FEE,
-      OPERATION_FEE
-    ) as TokenManager;
-
-    // Get the deployed Bridge and Oracle addresses
-    const bridgeAddress = await tokenManager.bridge();
-    const oracleAddress = await tokenManager.oracle();
-
-    // Get contract instances
-    bridge = await ethers.getContractAt("Bridge", bridgeAddress) as Bridge;
-    oracle = await ethers.getContractAt("Oracle", oracleAddress) as Oracle;
+      OPERATION_FEE,
+      await oracle.getAddress(),
+      owner.address
+    ) as Bridge;
 
     // Accept ownership for Oracle (required by Ownable2Step)
     await oracle.connect(owner).acceptOwnership();
     
     // Set bridge address in Oracle
-    await oracle.setBridge(bridgeAddress);
+    await oracle.setBridge(await bridge.getAddress());
 
     // For Bridge, the owner is Oracle, so we need to impersonate Oracle to accept ownership
-    const oracleSigner = await ethers.getImpersonatedSigner(oracleAddress);
+    const oracleSigner = await ethers.getImpersonatedSigner(await oracle.getAddress());
     await ethers.provider.send("hardhat_setBalance", [
       oracleSigner.address,
       "0x1000000000000000000"
@@ -54,6 +59,12 @@ describe("TokenManager", function () {
     
     // Accept ownership for Bridge (required by Ownable2Step)
     await bridge.connect(oracleSigner).acceptOwnership();
+    
+    // Set bridge and oracle in TokenManager
+    await tokenManager.setBridgeAndOracle(await bridge.getAddress(), await oracle.getAddress());
+    
+    // Transfer tokens to bridge
+    await tokenManager.transfer(await bridge.getAddress(), BRIDGE_AMOUNT);
   });
 
   describe("Deployment", function () {
@@ -67,9 +78,9 @@ describe("TokenManager", function () {
       expect(await tokenManager.totalSupply()).to.equal(TOTAL_SUPPLY);
     });
 
-    it("Should deploy Bridge and Oracle with correct configuration", async function () {
-      expect(await tokenManager.bridge()).to.not.equal(ethers.ZeroAddress);
-      expect(await tokenManager.oracle()).to.not.equal(ethers.ZeroAddress);
+    it("Should set Bridge and Oracle with correct configuration", async function () {
+      expect(await tokenManager.bridge()).to.equal(await bridge.getAddress());
+      expect(await tokenManager.oracle()).to.equal(await oracle.getAddress());
       
       // Check Bridge configuration
       expect(await bridge.tokenAddress()).to.equal(await tokenManager.getAddress());
@@ -88,6 +99,12 @@ describe("TokenManager", function () {
       
       expect(bridgeBalance).to.equal(BRIDGE_AMOUNT);
       expect(ownerBalance).to.equal(TOTAL_SUPPLY - BRIDGE_AMOUNT);
+    });
+
+    it("Should not allow setting bridge and oracle twice", async function () {
+      await expect(
+        tokenManager.setBridgeAndOracle(await bridge.getAddress(), await oracle.getAddress())
+      ).to.be.revertedWith("Bridge already set");
     });
   });
 
@@ -149,6 +166,38 @@ describe("TokenManager", function () {
       const finalSupply = await tokenManager.totalSupply();
       expect(finalSupply - initialSupply).to.equal(mintAmount * 2n);
       expect(await tokenManager.balanceOf(user2.address)).to.equal(mintAmount * 2n);
+    });
+
+    it("Should allow owner to mint and burn tokens directly", async function () {
+      const mintAmount = ethers.parseEther("100");
+      const initialSupply = await tokenManager.totalSupply();
+      
+      // Owner should be able to mint tokens
+      await tokenManager.connect(owner).mint(user2.address, mintAmount);
+      
+      // Check that tokens were minted
+      expect(await tokenManager.balanceOf(user2.address)).to.equal(mintAmount);
+      expect(await tokenManager.totalSupply()).to.equal(initialSupply + mintAmount);
+      
+      // Owner should be able to burn tokens with allowance
+      await tokenManager.connect(user2).approve(owner.address, mintAmount);
+      await tokenManager.connect(owner).burnFrom(user2.address, mintAmount);
+      
+      // Check that tokens were burned
+      expect(await tokenManager.balanceOf(user2.address)).to.equal(0);
+      expect(await tokenManager.totalSupply()).to.equal(initialSupply);
+    });
+
+    it("Should not allow non-owner/non-bridge to mint or burn", async function () {
+      const amount = ethers.parseEther("100");
+      
+      // Non-owner/non-bridge should not be able to mint
+      await expect(tokenManager.connect(user1).mint(user2.address, amount))
+        .to.be.revertedWith("Only bridge or owner can call this");
+      
+      // Non-owner/non-bridge should not be able to burn
+      await expect(tokenManager.connect(user1).burnFrom(user2.address, amount))
+        .to.be.revertedWith("Only bridge or owner can call this");
     });
   });
 

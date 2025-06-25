@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
@@ -20,7 +21,7 @@ const generateProjects = (count: number) => {
 describe("ProjectDAO", function () {
   let projectDAO: any;
   let communityNFT: CommunityNFT;
-  let tokenManager: TokenManager;
+  let tokenManager: any; // Use 'any' type to bypass TypeScript checks until types are regenerated
   let owner: SignerWithAddress;
   let admin: SignerWithAddress;
   let voter1: SignerWithAddress;
@@ -39,9 +40,6 @@ describe("ProjectDAO", function () {
   const TOKEN_NAME = "Merlin";
   const TOKEN_SYMBOL = "MRLN";
   const TOTAL_SUPPLY = ethers.parseEther("800000000");
-  const BRIDGE_AMOUNT = ethers.parseEther("100000000");
-  const TRANSFER_FEE = 100n; // 1% (100 basis points)
-  const OPERATION_FEE = ethers.parseEther("1"); // 1 MRLN token
 
   beforeEach(async function () {
     [owner, admin, voter1, voter2, projectOwner] = await ethers.getSigners();
@@ -56,15 +54,12 @@ describe("ProjectDAO", function () {
       "0x100000000000000000000000"  // 1,000,000 ETH
     ]);
 
-    // Deploy TokenManager first
+    // Deploy TokenManager first - with updated constructor
     const TokenManagerFactory = await ethers.getContractFactory("TokenManager");
     tokenManager = await TokenManagerFactory.deploy(
       TOKEN_NAME,
       TOKEN_SYMBOL,
-      TOTAL_SUPPLY,
-      BRIDGE_AMOUNT,
-      TRANSFER_FEE,
-      OPERATION_FEE
+      TOTAL_SUPPLY
     );
     await tokenManager.waitForDeployment();
 
