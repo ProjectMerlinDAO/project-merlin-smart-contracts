@@ -26,7 +26,12 @@
     "generate-test-accounts": "npx hardhat run scripts/generate-test-accounts.js",
     "transfer-presale-ownership": "npx hardhat run scripts/transfer-presale-ownership.js --network arbitrumSepolia",
     "accept-presale-ownership": "npx hardhat run scripts/accept-presale-ownership.js --network arbitrumSepolia",
-    "verify-arbitrum": "npx hardhat verify --network arbitrumOne"
+    "verify-arbitrum": "npx hardhat verify --network arbitrumOne",
+    "verify-token-manager:mainnet": "npx hardhat run scripts/verify-token-manager.js --network arbitrumOne",
+    "verify-token-manager:testnet": "npx hardhat run scripts/verify-token-manager.js --network arbitrumSepolia",
+    "verify-token-presale:mainnet": "npx hardhat run scripts/verify-token-presale.js --network arbitrumOne",
+    "verify-token-presale:testnet": "npx hardhat run scripts/verify-token-presale.js --network arbitrumSepolia",
+    "verify-all:mainnet": "npm run verify-token-manager:mainnet && npm run verify-token-presale:mainnet"
   },
   "keywords": [],
   "author": "",
