@@ -1,4 +1,5 @@
 const hre = require("hardhat");
+require("dotenv").config();
 
 async function main() {
   const [deployer] = await ethers.getSigners();
@@ -19,7 +20,7 @@ async function main() {
   const tokenManagerAddress = await tokenManager.getAddress();
   console.log("TokenManager deployed to:", tokenManagerAddress);
 
-  // Deploy mock USDC for testing (on testnet only)
+  // Get USDC and USDT addresses from environment variables or deploy mock tokens
   let usdcAddress;
   let usdtAddress;
   
@@ -41,17 +42,24 @@ async function main() {
     await mockUSDC.mint(deployer.address, ethers.parseUnits("1000000", 6));
     await mockUSDT.mint(deployer.address, ethers.parseUnits("1000000", 6));
   } else {
-    // Use actual USDC and USDT addresses for the specific network
-    // These are example addresses - replace with actual ones for your target network
-    if (network.chainId === 1) { // Ethereum mainnet
-      usdcAddress = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48";
-      usdtAddress = "0xdAC17F958D2ee523a2206206994597C13D831ec7";
-    } else if (network.chainId === 42161) { // Arbitrum One
-      usdcAddress = "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8";
-      usdtAddress = "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9";
+    // Use environment variables for token addresses
+    if (process.env.USDC_ADDRESS && process.env.USDT_ADDRESS) {
+      usdcAddress = process.env.USDC_ADDRESS;
+      usdtAddress = process.env.USDT_ADDRESS;
+      console.log("Using USDC address from .env:", usdcAddress);
+      console.log("Using USDT address from .env:", usdtAddress);
     } else {
-      console.error("Please configure USDC and USDT addresses for this network");
-      process.exit(1);
+      // Fallback to network-specific addresses if environment variables are not set
+      if (network.chainId === 1) { // Ethereum mainnet
+        usdcAddress = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48";
+        usdtAddress = "0xdAC17F958D2ee523a2206206994597C13D831ec7";
+      } else if (network.chainId === 42161) { // Arbitrum One
+        usdcAddress = "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8";
+        usdtAddress = "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9";
+      } else {
+        console.error("Please add USDC_ADDRESS and USDT_ADDRESS to your .env file");
+        process.exit(1);
+      }
     }
   }
 

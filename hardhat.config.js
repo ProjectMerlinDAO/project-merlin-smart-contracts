@@ -24,13 +24,28 @@ module.exports = {
       chainId: 421614,
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : []
     },
+    "arbitrum-sepolia": {
+      url: "https://sepolia-rollup.arbitrum.io/rpc",
+      chainId: 421614,
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : []
+    },
     arbitrumOne: {
+      url: "https://arb1.arbitrum.io/rpc",
+      chainId: 42161,
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : []
+    },
+    "arbitrum-one": {
       url: "https://arb1.arbitrum.io/rpc",
       chainId: 42161,
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : []
     },
     // Legacy Goerli testnet (deprecated but kept for compatibility)
     arbitrumGoerli: {
+      url: "https://goerli-rollup.arbitrum.io/rpc",
+      chainId: 421613,
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : []
+    },
+    "arbitrum-goerli": {
       url: "https://goerli-rollup.arbitrum.io/rpc",
       chainId: 421613,
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : []
