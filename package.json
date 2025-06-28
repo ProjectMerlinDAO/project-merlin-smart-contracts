@@ -22,6 +22,7 @@
     "deploy-presale-mainnet": "npx hardhat run scripts/deploy-presale-mainnet.js --network arbitrumOne",
     "fund-presale": "npx hardhat run scripts/fund-presale.js --network arbitrumSepolia",
     "activate-presale": "npx hardhat run scripts/activate-presale.js --network arbitrumSepolia",
+    "activate-presale:mainnet": "npx hardhat run scripts/activate-presale.js --network arbitrumOne",
     "fund-test-users": "npx hardhat run scripts/fund-test-users.js --network arbitrumSepolia",
     "generate-test-accounts": "npx hardhat run scripts/generate-test-accounts.js",
     "transfer-presale-ownership": "npx hardhat run scripts/transfer-presale-ownership.js --network arbitrumSepolia",
