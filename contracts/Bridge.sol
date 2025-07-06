@@ -56,6 +56,11 @@ contract Bridge is Ownable2Step, Pausable {
         address indexed newProcessor
     );
 
+    event FeesWithdrawn(
+        address indexed to,
+        uint256 amount
+    );
+
     /**
      * @dev Modifier to restrict functions to offchain processor
      */
@@ -103,6 +108,7 @@ contract Bridge is Ownable2Step, Pausable {
      * - Validates allowance and balances
      * - Calculates fees with overflow protection
      * - Burns tokens after successful transfer
+     * - Admin (owner) is exempt from fees
      */
     function receiveAsset(
         uint256 amount,
@@ -119,17 +125,24 @@ contract Bridge is Ownable2Step, Pausable {
         uint256 allowance = token.allowance(msg.sender, thisAddress);
         require(allowance >= amount, "Insufficient allowance");
 
-        // Calculate fees with overflow protection
-        uint256 transferFeeAmount = (amount * transferFee) / FEE_DENOMINATOR;
-        uint256 totalFee = transferFeeAmount + operationFee;
-        require(totalFee < amount, "Fee exceeds amount");
+        // Calculate fees - exempt for admin
+        uint256 totalFee = 0;
+        uint256 amountAfterFee = amount;
 
-        uint256 amountAfterFee = amount - totalFee;
+        if (msg.sender != owner()) {
+            // Calculate fees with overflow protection
+            uint256 transferFeeAmount = (amount * transferFee) / FEE_DENOMINATOR;
+            totalFee = transferFeeAmount + operationFee;
+            require(totalFee < amount, "Fee exceeds amount");
+            amountAfterFee = amount - totalFee;
+        }
 
         require(token.transferFrom(msg.sender, thisAddress, amount), "Transfer failed");
 
-        // Burn tokens after successful transfer
-        token.burnFrom(thisAddress, amountAfterFee);
+        // Burn only the amount after fees, keep fees in contract
+        if (amountAfterFee > 0) {
+            token.burnFrom(thisAddress, amountAfterFee);
+        }
 
         emit BridgeStarted(msg.sender, amount, amountAfterFee, destinationChain, destinationAddress);
     }
@@ -203,6 +216,7 @@ contract Bridge is Ownable2Step, Pausable {
      * Security:
      * - Only callable by owner (Oracle)
      * - Protected against reentrancy by transfer pattern
+     * - Emits event for tracking
      */
     function withdrawFees(address to) external payable onlyOwner {
         require(to != address(0), "Invalid recipient");
@@ -211,6 +225,7 @@ contract Bridge is Ownable2Step, Pausable {
         uint256 balance = token.balanceOf(thisAddress);
         require(balance != 0, "No fees to withdraw");
         require(token.transfer(to, balance), "Fee withdrawal failed");
+        emit FeesWithdrawn(to, balance);
     }
 
     /**
