@@ -12,7 +12,7 @@ async function main() {
   const newProcessor = "0x5c3C97Ea087024f91EB11d5659F1B5A3b911E971";
 
   // Get the Bridge contract address from environment variable
-  const bridgeAddress = "0xD8deDb14C828E9242c8a577F3A1919cf12db0823";
+  const bridgeAddress = "0xf6d07872b649aa364bbb758C03B5fA925378CB8C";
   if (!bridgeAddress) {
     throw new Error("BRIDGE_ADDRESS not set in environment");
   }

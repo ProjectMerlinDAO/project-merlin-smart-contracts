@@ -4,12 +4,13 @@ pragma solidity >=0.8.0 <0.9.0;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "./interfaces/ITokenManager.sol";
+import "./interfaces/IBEP20.sol";
 
 /**
  * @title TokenManager
  * @dev Implementation of the Project Merlin token with bridge functionality
  * 
- * This contract manages the ERC20 token used in the Project Merlin ecosystem.
+ * This contract manages the ERC20/BEP20 token used in the Project Merlin ecosystem.
  * It includes bridging capabilities that can be added later through a dedicated Bridge contract.
  *
  * Security considerations:
@@ -18,7 +19,7 @@ import "./interfaces/ITokenManager.sol";
  * - Initial token distribution is handled in constructor
  * - Uses OpenZeppelin's battle-tested ERC20 and Ownable implementations
  */
-contract TokenManager is ERC20, Ownable2Step, ITokenManager {
+contract TokenManager is ERC20, Ownable2Step, ITokenManager, IBEP20 {
     // Contract addresses for core functionality
     address public override bridge;
     address public override oracle;
@@ -46,6 +47,13 @@ contract TokenManager is ERC20, Ownable2Step, ITokenManager {
 
         // Mint total supply to deployer (owner)
         _mint(msg.sender, totalSupply_);
+    }
+
+    /**
+     * @dev Returns the owner of the token contract (BEP-20 compatibility)
+     */
+    function getOwner() external view override returns (address) {
+        return owner();
     }
 
     /**
