@@ -6,7 +6,7 @@ async function main() {
 
     const TOKEN_NAME = "Merlin Token";
     const TOKEN_SYMBOL = "MRLN";
-    const TOTAL_SUPPLY = ethers.parseEther("800000000"); // 800M tokens
+    const TOTAL_SUPPLY = ethers.parseEther("0"); // 800M tokens
 
     console.log("Token Configuration:");
     console.log("- Name:", TOKEN_NAME);

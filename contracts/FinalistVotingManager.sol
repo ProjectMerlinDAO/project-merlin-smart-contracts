@@ -150,17 +150,17 @@ contract FinalistVotingManager is AccessControl {
             }
             
             // Process votes and store top projects
-            string[] memory topProjects = FinalistVotingLib.processVotes(
-                votingState,
-                voters,
-                voterListTypes[roundId],
-                votingRounds[roundId],
-                i,
-                projectsInListType
-            );
-            
-            votingState.topProjectsByListType[i] = topProjects;
-            emit TopProjectsSelected(roundId, i, topProjects);
+//            string[] memory topProjects = FinalistVotingLib.processVotes(
+//                votingState,
+//                voters,
+//                voterListTypes[roundId],
+//                votingRounds[roundId],
+//                i,
+//                projectsInListType
+//            );
+//
+//            votingState.topProjectsByListType[i] = topProjects;
+//            emit TopProjectsSelected(roundId, i, topProjects);
         }
         
         // Create finalist lists

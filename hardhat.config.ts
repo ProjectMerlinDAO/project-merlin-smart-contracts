@@ -20,14 +20,16 @@ const LINEA_RPC_URL = process.env.LINEA_RPC_URL;
 
 const config: HardhatUserConfig = {
   solidity: {
-    version: "0.8.19",
+    version: "0.8.23",
     settings: {
       optimizer: {
         enabled: true,
-        runs: 200
+        runs: 200,
+        details: {
+          yul: false
+        }
       },
-      viaIR: true
-    }
+    },
   },
   networks: {
     hardhat: {
