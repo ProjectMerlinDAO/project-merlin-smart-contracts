@@ -107,6 +107,11 @@ const config: HardhatUserConfig = {
     outDir: "typechain-types",
     target: "ethers-v6"
   },
+  sourcify: {
+    enabled: true,
+    apiUrl: "https://sourcify.dev/server",
+    browserUrl: "https://repo.sourcify.dev",
+  },
   etherscan: {
     apiKey: {
       bsc: BSCSCAN_API_KEY,
