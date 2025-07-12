@@ -4,8 +4,8 @@ async function main() {
     const [deployer] = await ethers.getSigners();
 
     console.log("Deploying Bridge...");
-    const tokenManagerAddress = "0x79bE2B20389A869476d183b1f42B9950EAf457d8"
-    const oracleAddress = "0x2660d1a622B7b683E3418dbfCcbBcDe30d05f48d";
+    const tokenManagerAddress = "0x0B3547CD0E14e7D42f8921b0c370FdFD708bff6C"
+    const oracleAddress = "0xe8F96D4daBdC090Df1fCDedB0c4182f19Aa16D12";
 
     const BridgeFactory = await ethers.getContractFactory("Bridge");
     const transferFee = 5; // 1% (100 basis points)
