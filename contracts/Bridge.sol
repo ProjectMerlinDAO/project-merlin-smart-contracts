@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity >=0.8.0 <0.9.0;
 
-import "./TokenManager.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/access/Ownable2Step.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
+import {TokenManager} from "./TokenManager.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
  * @title Bridge
@@ -20,7 +20,7 @@ import "@openzeppelin/contracts/security/Pausable.sol";
  * - Fee calculations protected against overflow
  * - Uses OpenZeppelin's Ownable and Pausable for security
  */
-contract Bridge is Ownable2Step, Pausable {
+contract Bridge is Ownable, Pausable {
     // Core state variables
     address public tokenAddress;
     uint256 public transferFee;    // percentage (e.g., 100 = 1%)
@@ -30,7 +30,7 @@ contract Bridge is Ownable2Step, Pausable {
 
     // Maximum fee constraints
     uint256 private constant MAX_TRANSFER_FEE = 1000; // 10%
-    uint256 private constant MAX_OPERATION_FEE = 1000 * 10**18; // 1000 tokens
+    uint256 private constant MAX_OPERATION_FEE = 1000 * 10 ** 18; // 1000 tokens
 
     // Events for tracking bridge operations
     event BridgeStarted(
@@ -95,7 +95,8 @@ contract Bridge is Ownable2Step, Pausable {
         transferFee = _transferFee;
         operationFee = _operationFee;
         offchainProcessor = _offchainProcessor;
-        transferOwnership(oracle);
+
+        _transferOwnership(oracle);
     }
 
     /**
@@ -121,7 +122,7 @@ contract Bridge is Ownable2Step, Pausable {
 
         TokenManager token = TokenManager(tokenAddress);
         address thisAddress = address(this);
-        
+
         uint256 allowance = token.allowance(msg.sender, thisAddress);
         require(allowance >= amount, "Insufficient allowance");
 

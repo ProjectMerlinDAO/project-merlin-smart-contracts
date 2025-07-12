@@ -1,6 +1,4 @@
 const {ethers} = require("hardhat");
 module.exports = [
-    "Merlin Token",
-    "MRLN",
-    ethers.parseEther("800000000")
+   "0xcF632eAb35B4885C0f87D14cce44F574eACABFFb"
 ];
