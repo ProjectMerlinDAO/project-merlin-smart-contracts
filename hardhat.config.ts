@@ -39,14 +39,12 @@ const config: HardhatUserConfig = {
     },
     // BNB Chain Networks
     bsc: {
-      url: BSC_RPC_URL || "https://bsc-dataseed1.binance.org",
+      url: BSC_RPC_URL || "https://bsc-dataseed.binance.org/",
       chainId: 56,
       accounts: [PRIVATE_KEY],
-      timeout: 60000,
-      gasMultiplier: 1.2
     },
     bscTestnet: {
-      url:  BSC_RPC_URL || "https://data-seed-prebsc-1-s1.binance.org:8545",
+      url: BSC_RPC_URL || "https://data-seed-prebsc-1-s1.binance.org:8545/",
       chainId: 97,
       accounts: [PRIVATE_KEY],
       gasMultiplier: 1.2

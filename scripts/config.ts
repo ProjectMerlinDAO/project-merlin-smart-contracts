@@ -12,7 +12,7 @@ const configs: { [key: string]: NetworkConfig } = {
   // Arbitrum Networks
   arbitrumOne: {
     name: "Arbitrum One",
-    tokenName: "Merlin",
+    tokenName: "Merlin Token",
     tokenSymbol: "MRLN",
     totalSupply: "800000000",
     bridgeAmount: "100000000",
@@ -21,7 +21,7 @@ const configs: { [key: string]: NetworkConfig } = {
   },
   arbitrumSepolia: {
     name: "Arbitrum Sepolia",
-    tokenName: "Merlin",
+    tokenName: "Merlin Token",
     tokenSymbol: "MRLN",
     totalSupply: "800000000",
     bridgeAmount: "100000000",
@@ -31,7 +31,7 @@ const configs: { [key: string]: NetworkConfig } = {
   // Base Networks
   base: {
     name: "Base",
-    tokenName: "Merlin",
+    tokenName: "Merlin Token",
     tokenSymbol: "MRLN",
     totalSupply: "800000000",
     bridgeAmount: "100000000",
@@ -40,7 +40,7 @@ const configs: { [key: string]: NetworkConfig } = {
   },
   baseSepolia: {
     name: "Base Sepolia",
-    tokenName: "Merlin",
+    tokenName: "Merlin Token",
     tokenSymbol: "MRLN",
     totalSupply: "800000000",
     bridgeAmount: "100000000",
@@ -50,7 +50,7 @@ const configs: { [key: string]: NetworkConfig } = {
   // Optimism Networks
   optimism: {
     name: "Optimism",
-    tokenName: "Merlin",
+    tokenName: "Merlin Token",
     tokenSymbol: "MRLN",
     totalSupply: "800000000",
     bridgeAmount: "100000000",
@@ -59,7 +59,7 @@ const configs: { [key: string]: NetworkConfig } = {
   },
   optimismSepolia: {
     name: "Optimism Sepolia",
-    tokenName: "Merlin",
+    tokenName: "Merlin Token",
     tokenSymbol: "MRLN",
     totalSupply: "800000000",
     bridgeAmount: "100000000",
@@ -69,7 +69,7 @@ const configs: { [key: string]: NetworkConfig } = {
   // Linea Networks
   linea: {
     name: "Linea",
-    tokenName: "Merlin",
+    tokenName: "Merlin Token",
     tokenSymbol: "MRLN",
     totalSupply: "800000000",
     bridgeAmount: "100000000",
@@ -78,7 +78,7 @@ const configs: { [key: string]: NetworkConfig } = {
   },
   lineaTestnet: {
     name: "Linea Sepolia",
-    tokenName: "Merlin",
+    tokenName: "Merlin Token",
     tokenSymbol: "MRLN",
     totalSupply: "800000000",
     bridgeAmount: "100000000",
@@ -88,7 +88,7 @@ const configs: { [key: string]: NetworkConfig } = {
   // BSC Networks
   bsc: {
     name: "BNB Chain",
-    tokenName: "Merlin",
+    tokenName: "Merlin Token",
     tokenSymbol: "MRLN",
     totalSupply: "800000000",
     bridgeAmount: "100000000",
@@ -97,7 +97,7 @@ const configs: { [key: string]: NetworkConfig } = {
   },
   bscTestnet: {
     name: "BSC Testnet",
-    tokenName: "Merlin",
+    tokenName: "Merlin Token",
     tokenSymbol: "MRLN",
     totalSupply: "800000000",
     bridgeAmount: "100000000",

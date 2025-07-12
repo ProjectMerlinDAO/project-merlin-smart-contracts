@@ -68,10 +68,10 @@ async function deployBridgeContracts(deployer: any, config: any, chainId: number
   const oracleAddress = await oracle.getAddress();
   console.log("Oracle deployed to:", oracleAddress);
 
-  // Deploy TokenManager (simple version - only 3 parameters)
+  // Deploy TokenManager (3 parameter version)
   console.log("Deploying TokenManager...");
-  const TokenManager = await ethers.getContractFactory("TokenManager");
-  const tokenManager = await TokenManager.deploy(
+  const TokenManagerFactory = await ethers.getContractFactory("TokenManager");
+  const tokenManager = await TokenManagerFactory.deploy(
     params.tokenName,
     params.tokenSymbol,
     ethers.parseEther(params.totalSupply.toString())
@@ -80,7 +80,7 @@ async function deployBridgeContracts(deployer: any, config: any, chainId: number
   const tokenManagerAddress = await tokenManager.getAddress();
   console.log("TokenManager deployed to:", tokenManagerAddress);
 
-  // Deploy Bridge
+  // Deploy Bridge manually
   console.log("Deploying Bridge...");
   const BridgeFactory = await ethers.getContractFactory("Bridge");
   const bridge = await BridgeFactory.deploy(
@@ -88,7 +88,7 @@ async function deployBridgeContracts(deployer: any, config: any, chainId: number
     params.transferFee,
     ethers.parseEther(params.operationFee.toString()),
     oracleAddress,
-    deployer.address // offchain processor initially set to deployer
+    deployer.address
   );
   await bridge.waitForDeployment();
   const bridgeAddress = await bridge.getAddress();
@@ -99,12 +99,7 @@ async function deployBridgeContracts(deployer: any, config: any, chainId: number
   await oracle.setBridge(bridgeAddress);
   console.log("Bridge address set in Oracle");
 
-  // Set bridge and oracle in TokenManager
-  console.log("Setting Bridge and Oracle in TokenManager...");
-  await tokenManager.setBridgeAndOracle(bridgeAddress, oracleAddress);
-  console.log("Bridge and Oracle set in TokenManager");
-
-  // Transfer bridge amount of tokens to the Bridge
+  // Transfer tokens to bridge
   console.log("Transferring tokens to Bridge...");
   const bridgeAmount = ethers.parseEther(params.bridgeAmount.toString());
   await tokenManager.transfer(bridgeAddress, bridgeAmount);

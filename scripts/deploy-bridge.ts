@@ -21,25 +21,40 @@ async function main() {
   console.log("Deploying TokenManager...");
   const TokenManagerFactory = await ethers.getContractFactory("TokenManager");
   const tokenManager = await TokenManagerFactory.deploy(
-    "Merlin",                     // name
+    "Merlin Token",               // name (matching presale deployment)
     "MRLN",                       // symbol
     ethers.parseEther("800000000"), // totalSupply
-    ethers.parseEther("100000000"), // bridgeAmount
-    100,                           // transferFee (1%)
-    ethers.parseEther("1")         // operationFee (1 MRLN)
   );
   await tokenManager.waitForDeployment();
   const tokenManagerAddress = await tokenManager.getAddress();
   console.log("TokenManager deployed to:", tokenManagerAddress);
 
-  // Get Bridge address
-  const bridgeAddress = await tokenManager.bridge();
+  // Deploy Bridge manually
+  console.log("Deploying Bridge...");
+  const BridgeFactory = await ethers.getContractFactory("Bridge");
+  const transferFee = 100; // 1% (100 basis points)
+  const operationFee = ethers.parseEther("1"); // 1 MRLN
+  const bridge = await BridgeFactory.deploy(
+    tokenManagerAddress,
+    transferFee,
+    operationFee,
+    oracleAddress,
+    deployer.address // offchain processor initially set to deployer
+  );
+  await bridge.waitForDeployment();
+  const bridgeAddress = await bridge.getAddress();
   console.log("Bridge deployed to:", bridgeAddress);
 
   // Set the bridge address in the Oracle
   console.log("Setting bridge address in Oracle...");
   await oracle.setBridge(bridgeAddress);
   console.log("Bridge address set in Oracle");
+
+  // Transfer tokens to bridge
+  console.log("Transferring tokens to Bridge...");
+  const bridgeAmount = ethers.parseEther("100000000"); // 100M tokens
+  await tokenManager.transfer(bridgeAddress, bridgeAmount);
+  console.log(`Transferred ${ethers.formatEther(bridgeAmount)} tokens to Bridge`);
 
   // Wait for block confirmations before verification
   console.log("Waiting for confirmations...");
@@ -57,12 +72,9 @@ async function main() {
       await hre.run("verify:verify", {
         address: tokenManagerAddress,
         constructorArguments: [
-          "Merlin",
+          "Merlin Token",
           "MRLN",
-          ethers.parseEther("800000000"),
-          ethers.parseEther("100000000"),
-          100,
-          ethers.parseEther("1")
+          ethers.parseEther("800000000")
         ],
       });
       
@@ -70,8 +82,8 @@ async function main() {
         address: bridgeAddress,
         constructorArguments: [
           tokenManagerAddress,
-          100,
-          ethers.parseEther("1"),
+          transferFee,
+          operationFee,
           oracleAddress,
           deployer.address
         ],

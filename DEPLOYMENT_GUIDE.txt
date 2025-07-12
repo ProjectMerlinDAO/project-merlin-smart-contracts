@@ -1,0 +1,209 @@
+--- To Deploy Bridge Contracts on Arbitrum and BNB Networks ---
+
+=== QUICK SUMMARY ===
+1. Deploy bridge in Arbitrum (using existing token)
+2. Deploy token in BSC (new token, 800M supply, held by deployer)
+3. Add BSC token address to .env file
+4. Deploy bridge in BSC (using new token)
+5. Connect TokenManager to Bridge and Oracle in BSC
+
+=== ADD THESE ENV VARIABLES TO .env FILE ===
+
+# Required for all deployments
+PRIVATE_KEY=your_private_key_here
+
+# Network-specific API keys for contract verification
+ARBISCAN_API_KEY=your_arbiscan_api_key
+BSCSCAN_API_KEY=your_bscscan_api_key
+
+# Optional: Custom RPC URLs (uses defaults if not provided)
+ARBITRUM_RPC_URL=your_arbitrum_rpc_url
+BSC_RPC_URL=your_bsc_rpc_url
+
+# If BSC mainnet has connectivity issues, try these alternatives:
+# BSC_RPC_URL=https://bsc-dataseed1.defibit.io
+# BSC_RPC_URL=https://bsc-dataseed1.ninicoin.io
+# BSC_RPC_URL=https://bsc-dataseed.binance.org
+
+# FOR ARBITRUM: Your existing token address from presale deployment
+TOKEN_MANAGER_ADDRESS=your_existing_arbitrum_token_address
+
+# FOR BSC: Will be updated in Step 3 with new token address
+# TOKEN_MANAGER_ADDRESS=0x702ac5EAd42C3302B3FfefB5C80A9E1df05B26Fa
+
+# FOR BSC: Will be updated in Step 5 with Bridge and Oracle addresses
+# BRIDGE_ADDRESS=0x[BRIDGE_ADDRESS_FROM_STEP_4]
+# ORACLE_ADDRESS=0x[ORACLE_ADDRESS_FROM_STEP_4]
+
+=== RUN THESE COMMANDS IN ORDER ===
+
+--- STEP 1: Deploy bridge in Arbitrum ---
+# Uses your existing token from presale deployment
+npm run deploy-bridge:arbitrum
+npm run set-processor:arbitrum
+
+--- STEP 2: Deploy token in BSC ---
+# Creates new token contract (800M total supply, held by deployer)
+npm run deploy-token:bsc-testnet  # for testnet
+# OR
+npm run deploy-token:bsc          # for mainnet
+
+--- STEP 3: Add necessary env file ---
+# Copy the token address from Step 2 console output
+# Example: TokenManager: 0x702ac5EAd42C3302B3FfefB5C80A9E1df05B26Fa
+# Add this to your .env file:
+TOKEN_MANAGER_ADDRESS=0x702ac5EAd42C3302B3FfefB5C80A9E1df05B26Fa
+
+--- STEP 4: Deploy bridge in BSC ---
+# Uses the new token from Step 2
+npm run deploy-bridge:bsc-testnet # for testnet
+# OR  
+npm run deploy-bridge:bsc         # for mainnet
+npm run set-processor:bsc-testnet # for testnet
+# OR
+npm run set-processor:bsc         # for mainnet
+
+--- STEP 5: Connect TokenManager to Bridge and Oracle ---
+# Copy Bridge and Oracle addresses from Step 4 console output
+# Add these to your .env file:
+# BRIDGE_ADDRESS=0x[BRIDGE_ADDRESS_FROM_STEP_4]
+# ORACLE_ADDRESS=0x[ORACLE_ADDRESS_FROM_STEP_4]
+npm run set-bridge-oracle:bsc-testnet # for testnet
+# OR
+npm run set-bridge-oracle:bsc         # for mainnet
+
+=== COMPLETE EXAMPLE (TESTNET) ===
+
+# Step 1: Deploy bridge in Arbitrum testnet
+TOKEN_MANAGER_ADDRESS=your_existing_arbitrum_token npm run deploy-bridge:arbitrum-testnet
+npm run set-processor:arbitrum-testnet
+
+# Step 2: Deploy token in BSC testnet
+npm run deploy-token:bsc-testnet
+# Console output: TokenManager: 0x702ac5EAd42C3302B3FfefB5C80A9E1df05B26Fa
+# Note: Check console for burn status
+
+# Step 3: Update .env file
+# Add this line: TOKEN_MANAGER_ADDRESS=0x702ac5EAd42C3302B3FfefB5C80A9E1df05B26Fa
+
+# Step 4: Deploy bridge in BSC testnet
+npm run deploy-bridge:bsc-testnet
+npm run set-processor:bsc-testnet
+# Console output: Bridge: 0x[BRIDGE_ADDRESS], Oracle: 0x[ORACLE_ADDRESS]
+
+# Step 5: Connect TokenManager to Bridge and Oracle
+# Add these to .env: BRIDGE_ADDRESS=0x[BRIDGE_ADDRESS], ORACLE_ADDRESS=0x[ORACLE_ADDRESS]
+npm run set-bridge-oracle:bsc-testnet
+
+=== COMPLETE EXAMPLE (MAINNET) ===
+
+# Step 1: Deploy bridge in Arbitrum mainnet
+TOKEN_MANAGER_ADDRESS=your_existing_arbitrum_token npm run deploy-bridge:arbitrum
+npm run set-processor:arbitrum
+
+# Step 2: Deploy token in BSC mainnet
+npm run deploy-token:bsc
+# Console output: TokenManager: 0x[NEW_BSC_TOKEN_ADDRESS]
+# Note: Check console for burn status
+
+# Step 3: Update .env file
+# Add this line: TOKEN_MANAGER_ADDRESS=0x[NEW_BSC_TOKEN_ADDRESS]
+
+# Step 4: Deploy bridge in BSC mainnet
+npm run deploy-bridge:bsc
+npm run set-processor:bsc
+# Console output: Bridge: 0x[BRIDGE_ADDRESS], Oracle: 0x[ORACLE_ADDRESS]
+
+# Step 5: Connect TokenManager to Bridge and Oracle
+# Add these to .env: BRIDGE_ADDRESS=0x[BRIDGE_ADDRESS], ORACLE_ADDRESS=0x[ORACLE_ADDRESS]
+npm run set-bridge-oracle:bsc
+
+=== WHAT GETS DEPLOYED ===
+
+For Arbitrum (bridge only):
+- Bridge contract (for cross-chain transfers)
+- Oracle contract (for price feeds and validation)
+- Connects to your existing token contract from presale
+- NO token deployment, NO automatic transfers
+
+For BSC (token first, then bridge):
+- TokenManager contract (ERC20 token with name: "Merlin Token", symbol: "MRLN")
+- 800M tokens minted then burned using contract's burnFrom function
+- Bridge contract (for cross-chain transfers)
+- Oracle contract (for price feeds and validation)
+- NO automatic token transfers to bridge
+
+=== IMPORTANT NOTES ===
+
+1. For Arbitrum: Only bridge infrastructure is deployed, connects to existing token
+2. For BSC: Token is deployed first without minting, then bridge is deployed separately
+3. NO automatic token transfers happen during deployment
+4. Boss needs to manually fund bridges after deployment
+5. All contracts are automatically verified if API keys are provided
+6. Save the deployed contract addresses from the console output
+7. The deployment uses optimized gas settings for each network
+
+=== DEPLOYED CONTRACT ADDRESSES ===
+
+After deployment, save these addresses:
+- Existing Token (Arbitrum): [your existing token address]
+- Bridge (Arbitrum): [address will be shown in console]
+- Oracle (Arbitrum): [address will be shown in console]
+- TokenManager (BSC): [address will be shown in console]
+- Bridge (BSC): [address will be shown in console]
+- Oracle (BSC): [address will be shown in console]
+
+=== FUNDING THE BRIDGE ===
+
+After deployment, boss needs to manually fund the bridge contracts:
+1. Transfer tokens directly to the bridge contract addresses
+2. Boss can send money to bridge contracts from his wallet
+3. Use the bridge contract addresses shown in deployment output
+
+=== DEPLOYMENT FLOW SUMMARY ===
+
+✅ Step 1: Deploy bridge in Arbitrum
+- Uses your existing token from presale deployment
+- Only deploys Bridge + Oracle contracts
+- No token transfers, no funding
+
+✅ Step 2: Deploy token in BSC  
+- Creates new TokenManager contract with 800M total supply
+- All tokens are held by deployer for manual distribution
+- No automatic burning to avoid deployment failures
+
+✅ Step 3: Add necessary env file
+- Copy the new BSC token address from Step 2 output
+- Update TOKEN_MANAGER_ADDRESS in .env file
+
+✅ Step 4: Deploy bridge in BSC
+- Uses the new token from Step 2
+- Deploys Bridge + Oracle contracts  
+- No token transfers, no funding
+
+✅ Step 5: Connect TokenManager to Bridge and Oracle
+- Copy Bridge and Oracle addresses from Step 4 output
+- Add them to .env file and run connection script
+- This allows the TokenManager to recognize the Bridge and Oracle
+
+✅ Step 6: Manual funding (Boss action)
+- Boss sends tokens to both bridge contract addresses from his wallet
+- Bridge addresses are shown in deployment output
+
+=== TROUBLESHOOTING ===
+
+If you get "invalid value for value.to" error on BSC mainnet:
+
+1. **Try different RPC URL**: Add to your .env file:
+   BSC_RPC_URL=https://bsc-dataseed1.defibit.io
+
+2. **Alternative RPC URLs**:
+   - https://bsc-dataseed1.ninicoin.io
+   - https://bsc-dataseed.binance.org
+   - https://rpc.ankr.com/bsc
+
+3. **Check network connectivity**: Ensure your internet connection is stable
+
+4. **Retry deployment**: Sometimes RPC endpoints have temporary issues
+
+5. **Use testnet first**: Always test on BSC testnet before mainnet 
