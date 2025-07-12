@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity >=0.8.0 <0.9.0;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/access/Ownable2Step.sol";
-import "./interfaces/ITokenManager.sol";
-import "./interfaces/IBEP20.sol";
+import {IBEP20} from "./interfaces/IBEP20.sol";
+import {ITokenManager} from "./interfaces/ITokenManager.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 /**
  * @title TokenManager
@@ -26,7 +27,7 @@ contract TokenManager is ERC20, Ownable2Step, ITokenManager, IBEP20 {
 
     // Maximum allowed fees (in basis points)
     uint256 public constant override MAX_TRANSFER_FEE = 1000; // 10%
-    uint256 public constant override MAX_OPERATION_FEE = 1000 * 10**18; // 1000 tokens
+    uint256 public constant override MAX_OPERATION_FEE = 1000 * 10 ** 18; // 1000 tokens
 
     /**
      * @dev Constructor initializes the token without bridge infrastructure
@@ -38,7 +39,7 @@ contract TokenManager is ERC20, Ownable2Step, ITokenManager, IBEP20 {
         string memory name_,
         string memory symbol_,
         uint256 totalSupply_
-    ) ERC20(name_, symbol_) payable {
+    ) ERC20(name_, symbol_) {
         require(bytes(name_).length != 0, "Name cannot be empty");
         require(bytes(symbol_).length != 0, "Symbol cannot be empty");
         require(totalSupply_ != 0, "Total supply must be positive");
@@ -68,10 +69,10 @@ contract TokenManager is ERC20, Ownable2Step, ITokenManager, IBEP20 {
         require(_oracle != address(0), "Oracle address cannot be zero");
         require(bridge == address(0), "Bridge already set");
         require(oracle == address(0), "Oracle already set");
-        
+
         bridge = _bridge;
         oracle = _oracle;
-        
+
         emit BridgeDeployed(_bridge, _oracle);
     }
 
@@ -95,14 +96,14 @@ contract TokenManager is ERC20, Ownable2Step, ITokenManager, IBEP20 {
         require(msg.sender == bridge || msg.sender == owner(), "Only bridge or owner can call this");
         require(account != address(0), "Cannot burn from zero address");
         require(amount != 0, "Cannot burn zero tokens");
-        
+
         if (msg.sender == owner()) {
             // Owner must have allowance
             uint256 currentAllowance = allowance(account, owner());
             require(currentAllowance >= amount, "ERC20: burn amount exceeds allowance");
             _approve(account, owner(), currentAllowance - amount);
         }
-        
+
         _burn(account, amount);
         emit TokensBurned(account, amount);
     }

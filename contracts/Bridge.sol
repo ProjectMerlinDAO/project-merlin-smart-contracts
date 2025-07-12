@@ -84,7 +84,7 @@ contract Bridge is Ownable, Pausable {
         uint256 _operationFee,
         address oracle,
         address _offchainProcessor
-    ) payable {
+    )  {
         require(_token != address(0), "Invalid token address");
         require(oracle != address(0), "Invalid oracle address");
         require(_offchainProcessor != address(0), "Invalid processor address");
@@ -176,7 +176,7 @@ contract Bridge is Ownable, Pausable {
      *
      * Security: Only callable by owner (Oracle)
      */
-    function updateTransferFee(uint256 newFee) external payable onlyOwner {
+    function updateTransferFee(uint256 newFee) external onlyOwner {
         require(newFee <= MAX_TRANSFER_FEE, "Fee too high");
         transferFee = newFee;
         emit FeeUpdated(newFee, operationFee);
@@ -188,7 +188,7 @@ contract Bridge is Ownable, Pausable {
      *
      * Security: Only callable by owner (Oracle)
      */
-    function updateOperationFee(uint256 newFee) external payable onlyOwner {
+    function updateOperationFee(uint256 newFee) external onlyOwner {
         require(newFee <= MAX_OPERATION_FEE, "Fee too high");
         operationFee = newFee;
         emit FeeUpdated(transferFee, newFee);
@@ -198,7 +198,7 @@ contract Bridge is Ownable, Pausable {
      * @dev Pauses bridge operations
      * Security: Only callable by owner (Oracle)
      */
-    function pause() external payable onlyOwner {
+    function pause() external onlyOwner {
         _pause();
     }
 
@@ -206,7 +206,7 @@ contract Bridge is Ownable, Pausable {
      * @dev Unpauses bridge operations
      * Security: Only callable by owner (Oracle)
      */
-    function unpause() external payable onlyOwner {
+    function unpause() external onlyOwner {
         _unpause();
     }
 
@@ -219,7 +219,7 @@ contract Bridge is Ownable, Pausable {
      * - Protected against reentrancy by transfer pattern
      * - Emits event for tracking
      */
-    function withdrawFees(address to) external payable onlyOwner {
+    function withdrawFees(address to) external onlyOwner {
         require(to != address(0), "Invalid recipient");
         IERC20 token = IERC20(tokenAddress);
         address thisAddress = address(this);
@@ -235,7 +235,7 @@ contract Bridge is Ownable, Pausable {
      *
      * Security: Only callable by owner (Oracle)
      */
-    function changeOffchain(address newOffchainProcessor) external payable onlyOwner {
+    function changeOffchain(address newOffchainProcessor) external onlyOwner {
         require(newOffchainProcessor != address(0), "Invalid processor address");
         address oldProcessor = offchainProcessor;
         offchainProcessor = newOffchainProcessor;

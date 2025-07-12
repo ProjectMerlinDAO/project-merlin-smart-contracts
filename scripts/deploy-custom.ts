@@ -2,26 +2,31 @@ import {ethers} from "hardhat";
 
 async function main() {
     const [deployer] = await ethers.getSigners();
+    console.log("Deploying ProjectDAO ecosystem with the account:", deployer.address);
 
-    console.log("Deploying Bridge...");
-    const tokenManagerAddress = "0x0B3547CD0E14e7D42f8921b0c370FdFD708bff6C"
-    const oracleAddress = "0x27C0Eb7Ba9c334d0740Ff529589bd89007398883";
+    const TOKEN_NAME = "Merlin Token";
+    const TOKEN_SYMBOL = "MRLN";
+    const TOTAL_SUPPLY = ethers.parseEther("800000000"); // 800M tokens
 
-    const BridgeFactory = await ethers.getContractFactory("Bridge");
-    const transferFee = 5; // 1% (100 basis points)
-    const operationFee = ethers.parseEther("1"); // 1 MRLN
+    console.log("Token Configuration:");
+    console.log("- Name:", TOKEN_NAME);
+    console.log("- Symbol:", TOKEN_SYMBOL);
+    console.log("- Total Supply:", ethers.formatEther(TOTAL_SUPPLY), "tokens");
+    console.log("- Strategy: Mint to deployer for manual distribution");
 
-    const bridge = await BridgeFactory.deploy(
-        tokenManagerAddress,
-        transferFee,
-        operationFee,
-        oracleAddress,
-        deployer.address // offchain processor initially set to deployer
+    // Deploy TokenManager (800M total supply)
+    console.log("\nDeploying TokenManager (800M total supply)...");
+
+    const TokenManagerFactory = await ethers.getContractFactory("TokenManager");
+    const tokenManager = await TokenManagerFactory.deploy(
+        TOKEN_NAME,
+        TOKEN_SYMBOL,
+        TOTAL_SUPPLY // 800M tokens - will be minted to deployer
     );
+    await tokenManager.waitForDeployment();
+    const tokenManagerAddress = await tokenManager.getAddress();
+    console.log("TokenManager deployed to:", tokenManagerAddress);
 
-    await bridge.waitForDeployment();
-    const bridgeAddress = await bridge.getAddress();
-    console.log("Bridge deployed to:", bridgeAddress);
 }
 
 
