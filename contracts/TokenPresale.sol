@@ -3,6 +3,7 @@ pragma solidity >=0.8.0 <0.9.0;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
@@ -31,6 +32,7 @@ import "./interfaces/ITokenPresale.sol";
  * - Balance validation before and after transfers
  */
 contract TokenPresale is ITokenPresale, Ownable2Step, ReentrancyGuard, Pausable {
+    using SafeERC20 for IERC20;
     
     // State variables
     IERC20 public immutable token;           // Token being sold
@@ -310,10 +312,7 @@ contract TokenPresale is ITokenPresale, Ownable2Step, ReentrancyGuard, Pausable 
         uint256 preBalance = IERC20(paymentToken).balanceOf(address(this));
         
         // Transfer payment token from user to contract
-        require(
-            IERC20(paymentToken).transferFrom(msg.sender, address(this), paymentAmount),
-            "Payment transfer failed"
-        );
+        IERC20(paymentToken).safeTransferFrom(msg.sender, address(this), paymentAmount);
         
         // Get balance after transfer and calculate actual received amount
         uint256 postBalance = IERC20(paymentToken).balanceOf(address(this));
@@ -351,10 +350,7 @@ contract TokenPresale is ITokenPresale, Ownable2Step, ReentrancyGuard, Pausable 
         purchases[msg.sender].totalClaimedTokens += claimableAmount;
         
         // Transfer tokens to user
-        require(
-            token.transfer(msg.sender, claimableAmount),
-            "Token transfer failed"
-        );
+        token.safeTransfer(msg.sender, claimableAmount);
         
         emit TokensClaimed(msg.sender, claimableAmount);
     }
@@ -453,10 +449,7 @@ contract TokenPresale is ITokenPresale, Ownable2Step, ReentrancyGuard, Pausable 
             "Insufficient balance"
         );
         
-        require(
-            IERC20(paymentToken).transfer(owner(), amount),
-            "Transfer failed"
-        );
+        IERC20(paymentToken).safeTransfer(owner(), amount);
         
         emit PaymentWithdrawn(paymentToken, owner(), amount);
     }
@@ -480,10 +473,7 @@ contract TokenPresale is ITokenPresale, Ownable2Step, ReentrancyGuard, Pausable 
             "Insufficient token balance"
         );
         
-        require(
-            token.transfer(owner(), amount),
-            "Token transfer failed"
-        );
+        token.safeTransfer(owner(), amount);
         
         emit EmergencyWithdraw(owner(), amount);
     }
@@ -495,10 +485,7 @@ contract TokenPresale is ITokenPresale, Ownable2Step, ReentrancyGuard, Pausable 
     function addTokensToPresale(uint256 amount) external override onlyOwner {
         require(amount != 0, "Amount must be greater than zero");
         
-        require(
-            token.transferFrom(msg.sender, address(this), amount),
-            "Token transfer failed"
-        );
+        token.safeTransferFrom(msg.sender, address(this), amount);
         
         emit TokensAddedToPresale(amount);
     }

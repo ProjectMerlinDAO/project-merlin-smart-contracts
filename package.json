@@ -12,7 +12,7 @@
     "clean": "hardhat clean",
     "typechain": "hardhat typechain",
     "build": "hardhat compile && npm run typechain",
-    "test-presale": "npx hardhat run scripts/test-presale.js --network localhost",
+    "test-presale": "npx hardhat run scripts/test-presale.js --network bscTestnet",
     "deploy-local": "npx hardhat run scripts/deploy-arbitrum.js --network localhost",
     "deploy-mrl-token": "npx hardhat run scripts/deploy-mrl-token.js --network arbitrumSepolia",
     "deploy-mock-tokens": "npx hardhat run scripts/deploy-mock-tokens.js --network arbitrumSepolia",
