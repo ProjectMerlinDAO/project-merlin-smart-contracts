@@ -1,0 +1,2 @@
+1. .env icine private key koy
+2. bunu calistir  npm run deploy-presale-only-mainnet
